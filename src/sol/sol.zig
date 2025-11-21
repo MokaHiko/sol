@@ -12,6 +12,11 @@ const state = struct {
     var show_second_window: bool = true;
 };
 
+const logger = @import("logger.zig").Logger(.{
+    .level = .Debug,
+    .prefix = "[" ++ @typeName(@This()) ++ "] ",
+});
+
 export fn init() void {
     // initialize sokol-gfx
     sg.setup(.{
@@ -31,6 +36,14 @@ export fn init() void {
         .load_action = .CLEAR,
         .clear_value = .{ .r = 0.0, .g = 0.5, .b = 1.0, .a = 1.0 },
     };
+
+    logger.trace("Gfx: {s}", .{@tagName(sg.queryBackend())});
+
+    const limits = sg.queryLimits();
+    const features = sg.queryFeatures();
+    logger.trace(" - max vertex attrs: {d}", .{limits.max_vertex_attrs});
+    logger.trace(" - max image size: {d} b", .{limits.max_image_size_2d});
+    logger.trace(" - compute: {s}", .{if (features.compute) "true" else "false"});
 }
 
 export fn frame() void {
