@@ -4,3 +4,6 @@ pub const Vec4 = vector.Vec4;
 
 const matrix = @import("matrix.zig");
 pub const Mat4 = matrix.Mat4;
+
+const Quat = @import("Quaternion.zig");
+const Rotation = @import("Rotation.zig");

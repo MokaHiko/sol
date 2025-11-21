@@ -25,8 +25,12 @@ pub const Vec3 = struct {
         return .{ ._v = @Vector(3, f32){ x, y, z } };
     }
 
+    pub fn add(self: Vec3, other: Vec3) Vec3 {
+        return .{ ._v = self._v + other._v };
+    }
+
     pub fn sub(self: Vec3, other: Vec3) Vec3 {
-        return Vec3.new(self._v[0] - other._v[0], self._v[1] - other._v[1], self._v[2] - other._v[2]);
+        return .{ ._v = self._v - other._v };
     }
 
     pub fn scale(self: Vec3, s: f32) Vec3 {
@@ -69,6 +73,14 @@ pub const Vec4 = struct {
 
     pub fn eql(self: Vec4, other: Vec4) bool {
         return @reduce(.And, self._v == other._v);
+    }
+
+    pub fn add(self: Vec4, other: Vec4) Vec4 {
+        return .{ ._v = self._v + other._v };
+    }
+
+    pub fn sub(self: Vec4, other: Vec4) Vec4 {
+        return .{ ._v = self._v - other._v };
     }
 
     pub fn zero() Vec4 {

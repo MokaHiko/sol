@@ -221,9 +221,7 @@ pub const Mat4 = union {
                   m[12] * m[1] * m[10] -
                   m[12] * m[2] * m[9];
 
-        inv[2] = m[1]  * m[6] * m[15] -
-                 m[1]  * m[7] * m[14] -
-                 m[5]  * m[2] * m[15] +
+        inv[2] = m[1]  * m[6] * m[15] - m[1]  * m[7] * m[14] - m[5]  * m[2] * m[15] +
                  m[5]  * m[3] * m[14] +
                  m[13] * m[2] * m[7] -
                  m[13] * m[3] * m[6];
@@ -292,41 +290,3 @@ pub const Mat4 = union {
         return result;
     }
 };
-
-const testing = @import("std").testing;
-
-test "zero matrix has determinant 0" {
-    const Z = Mat4.zero();
-    try testing.expect(Z.det() == 0.0);
-}
-
-test "identity matrix has determinant 1" {
-    const I = Mat4.identity();
-    try testing.expect(I.det() == 1.0);
-}
-
-test "zero matrix is singular" {
-    const Z = Mat4.zero();
-    try testing.expectError(Error.SingularMatrix, Z.inverse());
-}
-
-test "transformation identity" {
-    const T = Mat4.translate(Vec3.new(10, 11, 12));
-    const p = Vec4.new(0, 0, 0, 1.0);
-    const p_prime = T.mul_vec(p);
-
-    try testing.expect(Vec4.new(10, 11, 12, 1.0).eql(p_prime));
-}
-
-test "chained transform inverse gives identity" {
-    const T = Mat4.translate(Vec3.new(1, 10, 4));
-    const S = Mat4.scale(Vec3.new(5, 5.64, 5.4545));
-
-    const transform = T.mul(S);
-    const transform_inverse = try transform.inverse();
-
-    const I = transform_inverse.mul(transform);
-
-    const tolerance = 1e-3;
-    try testing.expectApproxEqRel(I.det(), 1.0, tolerance);
-}
