@@ -6,10 +6,22 @@ const sg = sokol.gfx;
 const sapp = sokol.app;
 const sglue = sokol.glue;
 const simgui = sokol.imgui;
+
 const state = struct {
     var pass_action: sg.PassAction = .{};
     var show_first_window: bool = true;
     var show_second_window: bool = true;
+};
+
+const std = @import("std");
+const builtin = @import("builtin");
+
+var gpa = @import("std").heap.GeneralPurposeAllocator(.{}).init;
+const allocator = switch (builtin.cpu.arch) {
+    .wasm32, .wasm64 => std.heap.c_allocator,
+    else => blk: {
+        break :blk gpa.allocator();
+    },
 };
 
 const logger = @import("logger.zig").Logger(.{
@@ -17,7 +29,9 @@ const logger = @import("logger.zig").Logger(.{
     .prefix = "[" ++ @typeName(@This()) ++ "] ",
 });
 
-export fn init() void {
+const fs = @import("io/file.zig");
+
+pub fn app_init() !void {
     // initialize sokol-gfx
     sg.setup(.{
         .environment = sglue.environment(),
@@ -39,11 +53,25 @@ export fn init() void {
 
     logger.trace("Gfx: {s}", .{@tagName(sg.queryBackend())});
 
+    // Gfx
     const limits = sg.queryLimits();
     const features = sg.queryFeatures();
     logger.trace(" - max vertex attrs: {d}", .{limits.max_vertex_attrs});
     logger.trace(" - max image size: {d} b", .{limits.max_image_size_2d});
     logger.trace(" - compute: {s}", .{if (features.compute) "true" else "false"});
+
+    // Fs
+    const buffer = try fs.read(allocator, "assets/scripts/app.lua", .{});
+    defer allocator.free(buffer);
+
+    logger.trace("size: {d}", .{buffer.len});
+    logger.trace("output: {s}", .{buffer});
+}
+
+export fn init() void {
+    app_init() catch |e| {
+        logger.err("{s}", .{@errorName(e)});
+    };
 }
 
 export fn frame() void {
@@ -93,6 +121,11 @@ export fn frame() void {
 export fn cleanup() void {
     simgui.shutdown();
     sg.shutdown();
+
+    _ = switch (builtin.cpu.arch) {
+        .wasm32, .wasm64 => std.heap.c_allocator,
+        else => gpa.deinit(),
+    };
 }
 
 export fn event(ev: [*c]const sapp.Event) void {

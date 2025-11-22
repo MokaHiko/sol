@@ -110,8 +110,9 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions) !void {
         .emsdk = dep_emsdk,
         .use_webgl2 = true,
         .use_emmalloc = true,
-        .use_filesystem = false,
+        .use_filesystem = true,
         .shell_file_path = opts.dep_sokol.path("src/sokol/web/shell.html"),
+        .extra_args = &[_][]const u8{ "--preload-file", "assets@/assets" },
     });
     // attach to default target
     b.getInstallStep().dependOn(&link_step.step);
