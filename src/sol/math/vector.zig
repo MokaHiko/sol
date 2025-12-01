@@ -3,6 +3,9 @@ pub const Vec3 = struct {
     pub const up = Vec3.new(0, 1, 0);
     pub const forward = Vec3.new(0, 0, 1);
 
+    pub const zero: Vec3 = .{ ._v = @Vector(3, f32){ 0, 0, 0 } };
+    pub const one: Vec3 = .{ ._v = @Vector(3, f32){ 1, 1, 1 } };
+
     _v: @Vector(3, f32),
 
     pub fn eql(self: Vec3, other: Vec3) bool {
@@ -45,6 +48,9 @@ pub const Vec3 = struct {
 pub const Vec4 = struct {
     _v: @Vector(4, f32),
 
+    pub const zero: Vec4 = .{ ._v = @Vector(4, f32){ 0, 0, 0, 0 } };
+    pub const one: Vec4 = .{ ._v = @Vector(4, f32){ 1, 1, 1, 1 } };
+
     pub fn dot(a: Vec4, b: Vec4) f32 {
         return _dot(a._v, b._v);
     }
@@ -81,10 +87,6 @@ pub const Vec4 = struct {
 
     pub fn sub(self: Vec4, other: Vec4) Vec4 {
         return .{ ._v = self._v - other._v };
-    }
-
-    pub fn zero() Vec4 {
-        return .{ ._v = @Vector(4, f32){ 0, 0, 0, 0 } };
     }
 
     pub fn len(self: Vec4) f32 {

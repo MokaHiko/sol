@@ -1,4 +1,4 @@
-const Self = @This();
+const Rotation = @This();
 
 const Quat = @import("Quaternion.zig");
 const Mat4 = @import("matrix.zig").Mat4;
@@ -13,7 +13,7 @@ _quat: Quat,
 ///
 /// This is equivalent to a world/extrinsic Z-Y-X rotation.
 /// The resulting quaternion is normalized to ensure unit length.
-pub fn new(x: f32, y: f32, z: f32) Self {
+pub fn new(x: f32, y: f32, z: f32) Rotation {
     const yaw = Quat.from_axis_angle(Vec3.up, y);
     const pitch = Quat.from_axis_angle(Vec3.right, x);
     const roll = Quat.from_axis_angle(Vec3.forward, z);
@@ -22,7 +22,7 @@ pub fn new(x: f32, y: f32, z: f32) Self {
     return .{ ._quat = yaw.mul(pitch.mul(roll)).normalize() catch unreachable };
 }
 
-pub fn toMat4(self: Self) Mat4 {
+pub fn toMat4(self: Rotation) Mat4 {
     const q = self._quat._v;
     const x = q[0];
     const y = q[1];
@@ -63,7 +63,7 @@ test "Rotation 90deg X axis" {
     const s = math.sqrt(0.5);
     const q = Quat.new(s, 0, 0, s); // 90° X
 
-    const r = Self{ ._quat = q };
+    const r = Rotation{ ._quat = q };
     const m = r.toMat4();
 
     const expected = Mat4{

@@ -24,7 +24,7 @@ const allocator = switch (builtin.cpu.arch) {
     },
 };
 
-const logger = @import("logger.zig").Logger(.{
+const logger = @import("logging/logger.zig").Logger(.{
     .level = .Debug,
     .prefix = "[" ++ @typeName(@This()) ++ "] ",
 });

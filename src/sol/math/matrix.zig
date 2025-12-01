@@ -5,28 +5,24 @@ pub const Error = error{
     SingularMatrix,
 };
 
-pub const Mat4 = union {
+pub const Mat4 = struct {
     _m: [4]@Vector(4, f32),
 
     /// Returns the identity matrix.
-    pub fn identity() Mat4 {
-        return .{ ._m = .{
-            @Vector(4, f32){ 1, 0, 0, 0 },
-            @Vector(4, f32){ 0, 1, 0, 0 },
-            @Vector(4, f32){ 0, 0, 1, 0 },
-            @Vector(4, f32){ 0, 0, 0, 1 },
-        } };
-    }
+    pub const identity: Mat4 = .{ ._m = .{
+        @Vector(4, f32){ 1, 0, 0, 0 },
+        @Vector(4, f32){ 0, 1, 0, 0 },
+        @Vector(4, f32){ 0, 0, 1, 0 },
+        @Vector(4, f32){ 0, 0, 0, 1 },
+    } };
 
     /// Returns a matrix filled with only zeros.
-    pub fn zero() Mat4 {
-        return .{ ._m = [4]@Vector(4, f32){
-            @Vector(4, f32){ 0, 0, 0, 0 },
-            @Vector(4, f32){ 0, 0, 0, 0 },
-            @Vector(4, f32){ 0, 0, 0, 0 },
-            @Vector(4, f32){ 0, 0, 0, 0 },
-        } };
-    }
+    pub const zero: Mat4 = .{ ._m = .{
+        @Vector(4, f32){ 0, 0, 0, 0 },
+        @Vector(4, f32){ 0, 0, 0, 0 },
+        @Vector(4, f32){ 0, 0, 0, 0 },
+        @Vector(4, f32){ 0, 0, 0, 0 },
+    } };
 
     pub fn translate(p: Vec3) Mat4 {
         return .{ ._m = [4]@Vector(4, f32){
@@ -60,7 +56,7 @@ pub const Mat4 = union {
     /// Mathematically:
     /// `result = self * right`
     pub fn mul(self: Mat4, right: Mat4) Mat4 {
-        var result = Mat4.zero();
+        var result = Mat4.zero;
 
         for (0..4) |c| {
             const rcol = right._m[c];
@@ -83,16 +79,14 @@ pub const Mat4 = union {
     }
 
     /// Returns the element at the given coordinates (row, col).
-    ///
-    /// Note: The matrix is stored in column-major order, so internally this reads
+    /// The matrix is stored in column-major order, so internally this reads
     /// from `self._m[col][row]`.
     pub fn at(self: Mat4, coords: struct { u64, u64 }) f32 {
         return self._m[coords.@"1"][coords.@"0"];
     }
 
     /// Sets the element at the given coordinates (row, col) = `val`.
-    ///
-    /// Note: The matrix is stored in column-major order, so internally this reads
+    /// The matrix is stored in column-major order, so internally this reads
     /// from `self._m[col][row] = val`.
     pub fn set(self: *Mat4, coords: struct { u64, u64 }, val: f32) void {
         self._m[coords.@"1"][coords.@"0"] = val;
@@ -100,7 +94,7 @@ pub const Mat4 = union {
 
     /// Returns the transpose of the matrix.
     pub fn transpose(self: Mat4) Mat4 {
-        var result = Mat4.zero();
+        var result = Mat4.zero;
 
         for (0..4) |c| {
             for (0..4) |r| {
