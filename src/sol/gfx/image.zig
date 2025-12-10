@@ -5,12 +5,16 @@ pub const Image = switch (builtin.os.tag) {
 };
 
 pub const Format = enum {
+    R8,
     RGBA8,
+    DEPTH_STENCIL,
 
     /// Returns the size of the format in bytes.
     pub fn toSize(self: Format) usize {
         switch (self) {
+            .R8 => return 1,
             .RGBA8 => return 4,
+            .DEPTH_STENCIL => return 0,
         }
     }
 };
