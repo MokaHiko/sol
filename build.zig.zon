@@ -11,6 +11,14 @@
             .url = "git+https://github.com/floooh/dcimgui.git#581c2e909c899c21923c779d4c41ea56ab93bbb4",
             .hash = "cimgui-0.1.0-44ClkQ14kwAiwcr3ioDjxvPuiWQctWrt-tIFtsfP6xmU",
         },
+        .zstbi = .{
+            .url = "git+https://github.com/zig-gamedev/zstbi#664305dd52640be15cbebd7cd73d1199679933e1",
+            .hash = "zstbi-0.11.0-dev-L0Ea_2yVBwA4uh-tHfgdhZcQaWRoZVYlNGs4Dl_WTeuR",
+        },
+        .TrueType = .{
+            .url = "git+https://codeberg.org/andrewrk/TrueType#7543e2dca70267e8f09e37be00fbc0385138581d",
+            .hash = "TrueType-0.0.0-Ne-mWHIGAQBwHsiS9z_vbr1SkVZCkG01Vpzrs079dzIO",
+        },
     },
     .paths = .{""},
 }
