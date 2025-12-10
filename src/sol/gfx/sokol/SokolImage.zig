@@ -8,7 +8,7 @@ const sg = sokol.gfx;
 
 const gfx = @import("../gfx.zig");
 
-_image: sg.Image,
+_image: sg.Image = .{},
 
 /// On success, returns an `Image` instance.
 /// Returns `gfx.image.Error!Image` on failure.
@@ -56,10 +56,10 @@ pub fn init(data: []const u8, w: i32, h: i32, format: gfx.image.Format, opts: gf
 /// Returns `gfx.image.Error!Image` on failure. On success, returns an `Image` instance.
 ///
 /// May allocate scratch memory using allocator passed for certain image usages.
-pub fn allocate(scratch_allocator: Allocator, w: u32, h: u32, format: gfx.image.Format, opts: gfx.image.Options) gfx.image.Error!Image {
+pub fn allocate(scratch_allocator: Allocator, w: i32, h: i32, format: gfx.image.Format, opts: gfx.image.Options) gfx.image.Error!Image {
     // Images WITHOUT these options must assign initial data and is equivalent to calling init with [w * h * channel]u8 = zeros
-    if (!opts.usage.color_attachment and !opts.usage.storage_image and opts.immutable) {
-        const data = try scratch_allocator.alloc(u8, w * h * format.toSize());
+    if (!opts.usage.color_attachment and !opts.usage.depth_stencil_attachment and !opts.usage.storage_image and opts.immutable) {
+        const data = try scratch_allocator.alloc(u8, @as(usize, @intCast(w * h)) * format.toSize());
         defer scratch_allocator.free(data);
         @memset(data, 0);
 
@@ -155,13 +155,17 @@ pub fn deinit(self: *Image) void {
 /// Converts `sol.gfx.ImageFormat` to `sokol.gfx.PixelFormat`.
 fn asPixelFormat(format: gfx.image.Format) sg.PixelFormat {
     switch (format) {
+        .R8 => return .R8,
         .RGBA8 => return .RGBA8,
+        .DEPTH_STENCIL => return .DEPTH_STENCIL,
     }
 }
 
 /// Converts `sokol.gfx.PixelFormat` to `sol.gfx.ImageFormat`.
 fn asFormat(format: sg.PixelFormat) gfx.image.Format {
     switch (format) {
+        .R8 => return .R8,
         .RGBA8 => return .RGBA8,
+        .DEPTH_STENCIL => return .DEPTH_STENCIL,
     }
 }
