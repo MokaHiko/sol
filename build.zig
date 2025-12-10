@@ -22,7 +22,18 @@ pub fn build(b: *Build) !void {
         .optimize = optimize,
         .with_sokol_imgui = true,
     });
+
     const dep_cimgui = b.dependency("cimgui", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const dep_ztsbi = b.dependency("zstbi", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const dep_TrueType = b.dependency("TrueType", .{
         .target = target,
         .optimize = optimize,
     });
@@ -36,11 +47,27 @@ pub fn build(b: *Build) !void {
         .imports = &.{
             .{ .name = "sokol", .module = dep_sokol.module("sokol") },
             .{ .name = cimgui_conf.module_name, .module = dep_cimgui.module(cimgui_conf.module_name) },
+            .{ .name = "sol_shaders", .module = try createShaderModule(b, dep_sokol) },
+            .{ .name = "ztsbi", .module = dep_ztsbi.module("root") },
+            .{ .name = "TrueType", .module = dep_TrueType.module("TrueType") },
         },
     });
     const mod_options = b.addOptions();
     mod_options.addOption(bool, "docking", opt_docking);
     mod.addOptions("build_options", mod_options);
+
+    const tlib = b.addLibrary(.{
+        .name = "sol",
+        .root_module = mod,
+    });
+
+    const install_docs = b.addInstallDirectory(.{
+        .source_dir = tlib.getEmittedDocs(),
+        .install_dir = .prefix,
+        .install_subdir = "docs",
+    });
+    const docs_step = b.step("docs", "Generate documentation");
+    docs_step.dependOn(&install_docs.step);
 
     // main module with sokol and cimgui imports
     const mod_main = b.createModule(.{
@@ -57,6 +84,7 @@ pub fn build(b: *Build) !void {
             .dep_sokol = dep_sokol,
             .dep_cimgui = dep_cimgui,
             .cimgui_clib_name = cimgui_conf.clib_name,
+            .dep_zstbi = dep_ztsbi,
         });
     } else {
         try buildNative(b, mod_main);
@@ -77,6 +105,7 @@ const BuildWasmOptions = struct {
     dep_sokol: *Dependency,
     dep_cimgui: *Dependency,
     cimgui_clib_name: []const u8,
+    dep_zstbi: *Dependency,
 };
 
 fn buildWasm(b: *Build, opts: BuildWasmOptions) !void {
@@ -91,10 +120,10 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions) !void {
     const dep_emsdk = opts.dep_sokol.builder.dependency("emsdk", .{});
 
     // need to inject the Emscripten system header include path into
-    // the cimgui C library otherwise the C/C++ code won't find
-    // C stdlib headers
+    // the C libraries otherwise the C/C++ code won't find C stdlib headers
     const emsdk_incl_path = dep_emsdk.path("upstream/emscripten/cache/sysroot/include");
     opts.dep_cimgui.artifact(opts.cimgui_clib_name).addSystemIncludePath(emsdk_incl_path);
+    opts.dep_zstbi.module("root").addIncludePath(emsdk_incl_path);
 
     // all C libraries need to depend on the sokol library, when building for
     // WASM this makes sure that the Emscripten SDK has been setup before
@@ -112,7 +141,7 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions) !void {
         .use_emmalloc = true,
         .use_filesystem = true,
         .shell_file_path = opts.dep_sokol.path("src/sokol/web/shell.html"),
-        .extra_args = &[_][]const u8{ "--preload-file", "assets@/assets" },
+        .extra_args = &[_][]const u8{ "-sALLOW_MEMORY_GROWTH", "--preload-file", "assets@/assets" },
     });
     // attach to default target
     b.getInstallStep().dependOn(&link_step.step);
@@ -121,4 +150,22 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions) !void {
     const run = sokol.emRunStep(b, .{ .name = "demo", .emsdk = dep_emsdk });
     run.step.dependOn(&link_step.step);
     b.step("run", "Run demo").dependOn(&run.step);
+}
+
+/// Compile shader via sokol-shdc
+fn createShaderModule(b: *Build, dep_sokol: *Build.Dependency) !*Build.Module {
+    const mod_sokol = dep_sokol.module("sokol");
+    const dep_shdc = dep_sokol.builder.dependency("shdc", .{});
+    return sokol.shdc.createModule(b, "sol_shaders", mod_sokol, .{
+        .shdc_dep = dep_shdc,
+        .input = "assets/shaders/sol_shaders.glsl",
+        .output = "sol_shaders.zig",
+        .slang = .{
+            .glsl410 = true,
+            .glsl300es = true,
+            .hlsl4 = true,
+            .metal_macos = true,
+            .wgsl = true,
+        },
+    });
 }
