@@ -9,6 +9,8 @@ const cimgui = @import("cimgui");
 const Config = @import("src/build/Config.zig");
 
 const SolMath = @import("src/build/SolMath.zig");
+
+const ShaderBuilder = @import("src/build/ShaderBuilder.zig");
 const SolText = @import("src/build/SolText.zig");
 
 pub fn build(b: *Build) !void {
@@ -46,13 +48,15 @@ pub fn build(b: *Build) !void {
     // inject the cimgui header search path into the sokol C library compile step
     dep_sokol.artifact("sokol_clib").addIncludePath(dep_cimgui.path(cimgui_conf.include_dir));
 
+    const shader_builder = try ShaderBuilder.init(b, dep_sokol);
+
     const mod = b.addModule("sol", .{
         .target = target,
-        .root_source_file = b.path("src/sol/main.zig"),
+        .root_source_file = b.path("src/sol/sol.zig"),
         .imports = &.{
             .{ .name = "sokol", .module = dep_sokol.module("sokol") },
             .{ .name = cimgui_conf.module_name, .module = dep_cimgui.module(cimgui_conf.module_name) },
-            .{ .name = "sol_shaders", .module = try createShaderModule(b, dep_sokol) },
+            .{ .name = "shaders", .module = try shader_builder.createModule("assets/shaders/sol_shaders.glsl") },
             .{ .name = "ztsbi", .module = dep_ztsbi.module("root") },
         },
     });
@@ -73,9 +77,16 @@ pub fn build(b: *Build) !void {
     const docs_step = b.step("docs", "Generate documentation");
     docs_step.dependOn(&install_docs.step);
 
-    // Modules
+    // Core
     const sol_math = try SolMath.init(b, config);
-    const sol_text = try SolText.init(b, config);
+
+    // Extra
+    const sol_text = try SolText.init(
+        b,
+        config,
+        sol_math,
+        shader_builder,
+    );
 
     // main module with sokol and cimgui imports
     const mod_main = b.createModule(.{
@@ -84,8 +95,8 @@ pub fn build(b: *Build) !void {
         .optimize = optimize,
         .imports = &.{
             .{ .name = "sol", .module = mod },
-            .{ .name = "sol_text", .module = sol_text.module },
             .{ .name = "sol_math", .module = sol_math.module },
+            .{ .name = "sol_text", .module = sol_text.module },
         },
     });
 
@@ -162,22 +173,4 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions) !void {
     const run = sokol.emRunStep(b, .{ .name = "demo", .emsdk = dep_emsdk });
     run.step.dependOn(&link_step.step);
     b.step("run", "Run demo").dependOn(&run.step);
-}
-
-/// Compile shader via sokol-shdc
-fn createShaderModule(b: *Build, dep_sokol: *Build.Dependency) !*Build.Module {
-    const mod_sokol = dep_sokol.module("sokol");
-    const dep_shdc = dep_sokol.builder.dependency("shdc", .{});
-    return sokol.shdc.createModule(b, "sol_shaders", mod_sokol, .{
-        .shdc_dep = dep_shdc,
-        .input = "assets/shaders/sol_shaders.glsl",
-        .output = "sol_shaders.zig",
-        .slang = .{
-            .glsl410 = true,
-            .glsl300es = true,
-            .hlsl4 = true,
-            .metal_macos = true,
-            .wgsl = true,
-        },
-    });
 }
