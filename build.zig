@@ -6,9 +6,19 @@ const Dependency = Build.Dependency;
 const sokol = @import("sokol");
 const cimgui = @import("cimgui");
 
+const Config = @import("src/build/Config.zig");
+
+const SolMath = @import("src/build/SolMath.zig");
+const SolText = @import("src/build/SolText.zig");
+
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const config = Config{
+        .target = target,
+        .optimize = optimize,
+    };
 
     const opt_docking = b.option(bool, "docking", "Build with docking support") orelse false;
 
@@ -33,23 +43,17 @@ pub fn build(b: *Build) !void {
         .optimize = optimize,
     });
 
-    const dep_TrueType = b.dependency("TrueType", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
     // inject the cimgui header search path into the sokol C library compile step
     dep_sokol.artifact("sokol_clib").addIncludePath(dep_cimgui.path(cimgui_conf.include_dir));
 
     const mod = b.addModule("sol", .{
         .target = target,
-        .root_source_file = b.path("src/sol/sol.zig"),
+        .root_source_file = b.path("src/sol/main.zig"),
         .imports = &.{
             .{ .name = "sokol", .module = dep_sokol.module("sokol") },
             .{ .name = cimgui_conf.module_name, .module = dep_cimgui.module(cimgui_conf.module_name) },
             .{ .name = "sol_shaders", .module = try createShaderModule(b, dep_sokol) },
             .{ .name = "ztsbi", .module = dep_ztsbi.module("root") },
-            .{ .name = "TrueType", .module = dep_TrueType.module("TrueType") },
         },
     });
     const mod_options = b.addOptions();
@@ -69,12 +73,20 @@ pub fn build(b: *Build) !void {
     const docs_step = b.step("docs", "Generate documentation");
     docs_step.dependOn(&install_docs.step);
 
+    // Modules
+    const sol_math = try SolMath.init(b, config);
+    const sol_text = try SolText.init(b, config);
+
     // main module with sokol and cimgui imports
     const mod_main = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
-        .imports = &.{.{ .name = "sol", .module = mod }},
+        .imports = &.{
+            .{ .name = "sol", .module = mod },
+            .{ .name = "sol_text", .module = sol_text.module },
+            .{ .name = "sol_math", .module = sol_math.module },
+        },
     });
 
     // from here on different handling for native vs wasm builds
