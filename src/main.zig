@@ -1,4 +1,3 @@
-const std = @import("std");
 const sol = @import("sol");
 
 pub fn main() !void {

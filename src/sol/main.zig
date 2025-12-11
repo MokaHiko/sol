@@ -2,7 +2,6 @@ const use_docking = @import("build_options").docking;
 const ig = if (use_docking) @import("cimgui_docking") else @import("cimgui");
 const sokol = @import("sokol");
 const slog = sokol.log;
-const sg = sokol.gfx;
 const sapp = sokol.app;
 const sglue = sokol.glue;
 const simgui = sokol.imgui;
@@ -16,20 +15,25 @@ const state = struct {
 const std = @import("std");
 const builtin = @import("builtin");
 
+// API
+
 var gpa = @import("std").heap.GeneralPurposeAllocator(.{}).init;
-const allocator = switch (builtin.cpu.arch) {
+pub const allocator = switch (builtin.cpu.arch) {
     .wasm32, .wasm64 => std.heap.c_allocator,
     else => blk: {
         break :blk gpa.allocator();
     },
 };
 
-const logger = @import("logging/logger.zig").Logger(.{
+pub const log = @import("logging/logger.zig").Logger(.{
     .level = .Debug,
     .prefix = "[" ++ @typeName(@This()) ++ "] ",
 });
 
-const fs = @import("io/file.zig");
+pub const fs = @import("io/file.zig");
+
+// TODO: Remove, Exposed for now until gfx is wrapped
+pub const sg = sokol.gfx;
 
 pub fn app_init() !void {
     // initialize sokol-gfx
@@ -51,26 +55,26 @@ pub fn app_init() !void {
         .clear_value = .{ .r = 0.0, .g = 0.5, .b = 1.0, .a = 1.0 },
     };
 
-    logger.trace("Gfx: {s}", .{@tagName(sg.queryBackend())});
+    log.trace("Gfx: {s}", .{@tagName(sg.queryBackend())});
 
     // Gfx
     const limits = sg.queryLimits();
     const features = sg.queryFeatures();
-    logger.trace(" - max vertex attrs: {d}", .{limits.max_vertex_attrs});
-    logger.trace(" - max image size: {d} b", .{limits.max_image_size_2d});
-    logger.trace(" - compute: {s}", .{if (features.compute) "true" else "false"});
+    log.trace(" - max vertex attrs: {d}", .{limits.max_vertex_attrs});
+    log.trace(" - max image size: {d} b", .{limits.max_image_size_2d});
+    log.trace(" - compute: {s}", .{if (features.compute) "true" else "false"});
 
     // Fs
     const buffer = try fs.read(allocator, "assets/scripts/app.lua", .{});
     defer allocator.free(buffer);
 
-    logger.trace("size: {d}", .{buffer.len});
-    logger.trace("output: {s}", .{buffer});
+    log.trace("size: {d}", .{buffer.len});
+    log.trace("output: {s}", .{buffer});
 }
 
 export fn init() void {
     app_init() catch |e| {
-        logger.err("{s}", .{@errorName(e)});
+        log.err("{s}", .{@errorName(e)});
     };
 }
 
