@@ -16,6 +16,12 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 // API
+pub const fs = @import("io/file.zig");
+pub const gfx = @import("gfx/gfx.zig");
+pub const log = @import("logging/logger.zig").Logger(.{
+    .level = .Debug,
+    .prefix = "[" ++ @typeName(@This()) ++ "] ",
+});
 
 var gpa = @import("std").heap.GeneralPurposeAllocator(.{}).init;
 pub const allocator = switch (builtin.cpu.arch) {
@@ -25,15 +31,17 @@ pub const allocator = switch (builtin.cpu.arch) {
     },
 };
 
-pub const log = @import("logging/logger.zig").Logger(.{
-    .level = .Debug,
-    .prefix = "[" ++ @typeName(@This()) ++ "] ",
-});
-
-pub const fs = @import("io/file.zig");
-
 // TODO: Remove, Exposed for now until gfx is wrapped
 pub const sg = sokol.gfx;
+
+/// Window fns
+pub fn windowWidth() i32 {
+    return sapp.width();
+}
+
+pub fn windowHeight() i32 {
+    return sapp.height();
+}
 
 pub fn app_init() !void {
     // initialize sokol-gfx

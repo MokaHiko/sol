@@ -3,7 +3,7 @@ const FontAtlas = @This();
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const image = @import("gfx/image.zig");
+const image = @import("sol").gfx.image;
 
 const Image = image.Image;
 const Font = @import("Font.zig");
