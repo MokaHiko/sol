@@ -5,12 +5,13 @@ const Build = std.Build;
 
 const Config = @import("Config.zig");
 
+const Sol = @import("Sol.zig");
 const SolMath = @import("SolMath.zig");
 const ShaderBuilder = @import("ShaderBuilder.zig");
 
 module: *Build.Module,
 
-pub fn init(b: *std.Build, config: Config, sol_math: SolMath, shader_builder: ShaderBuilder) !SolText {
+pub fn init(b: *std.Build, config: Config, sol: Sol, sol_math: SolMath, shader_builder: ShaderBuilder) !SolText {
     const dep_TrueType = b.dependency("TrueType", .{
         .target = config.target,
         .optimize = config.optimize,
@@ -22,7 +23,7 @@ pub fn init(b: *std.Build, config: Config, sol_math: SolMath, shader_builder: Sh
         .target = config.target,
         .root_source_file = b.path("src/sol_text/text.zig"),
         .imports = &.{
-            .{ .name = "sol", .module = b.modules.get("sol").? },
+            .{ .name = "sol", .module = sol.module },
             .{ .name = "sol_math", .module = sol_math.module },
             .{ .name = "text_shaders", .module = text_shaders },
             .{ .name = "TrueType", .module = dep_TrueType.module("TrueType") },

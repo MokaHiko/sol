@@ -3,7 +3,7 @@ const TextMesh = @This();
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const sg = @import("sol").sg;
+const sg = @import("sol").gfx_native;
 
 const Font = @import("Font.zig");
 

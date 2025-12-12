@@ -1,4 +1,3 @@
-// Font
 @vs vs_font
 in vec2 in_pos;
 in vec2 in_uv;
@@ -26,7 +25,7 @@ layout(binding=1) uniform sampler smp;
 void main() {
   vec4 color = texture(sampler2D(tex, smp), uv);
 
-  if(color.a == 0.0) {
+  if(color.r <= 0.001) {
     discard;
   }
 
