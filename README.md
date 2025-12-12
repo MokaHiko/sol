@@ -6,10 +6,14 @@
 
 ⚠️ Early-stage experimental framework.
 
-Sol is a simple, cross-platform app framework in Zig, blending a modern widget UI with powerful custom 3D rendering
+Sol is a simple, opinionated, cross-platform app framework in Zig,
+blending a modern widget UI with powerful custom 3D rendering
 
-`zig build run`
+Sol currently ships with examples.
+Build and run an example using:
+
+`zig build <example-name>`
 
 To build and run the web version:
 
-`zig build --release=small -Dtarget=wasm32-emscripten run`
+`zig build --release=small -Dtarget=wasm32-emscripten <example-name>`

@@ -3,12 +3,14 @@ const FontAtlas = @This();
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const image = @import("sol").gfx.image;
+const sol = @import("sol");
+const image = sol.gfx.image;
 
 const Image = image.Image;
 const Font = @import("Font.zig");
 
 atlas: Image = .{},
+view: sol.gfx_native.View,
 
 pub fn init(allocator: Allocator, font: Font) !FontAtlas {
     const atlas_w = font._rectPacker._opts.max_width;
@@ -46,16 +48,25 @@ pub fn init(allocator: Allocator, font: Font) !FontAtlas {
         src_offset = src_offset + copy_len;
     }
 
+    const atlas = try Image.init(
+        staging,
+        atlas_w,
+        atlas_h,
+        .R8,
+        .{
+            .immutable = false,
+        },
+    );
+
+    const view = sol.gfx_native.makeView(.{
+        .texture = .{
+            .image = atlas._image,
+        },
+    });
+
     return .{
-        .atlas = try Image.init(
-            staging,
-            atlas_w,
-            atlas_h,
-            .R8,
-            .{
-                .immutable = false,
-            },
-        ),
+        .atlas = atlas,
+        .view = view,
     };
 }
 
