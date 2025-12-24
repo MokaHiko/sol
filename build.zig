@@ -12,6 +12,7 @@ const Sol = @import("src/build/Sol.zig");
 const SolMath = @import("src/build/SolMath.zig");
 const ShaderBuilder = @import("src/build/ShaderBuilder.zig");
 
+const SolShape = @import("src/build/SolShape.zig");
 const SolText = @import("src/build/SolText.zig");
 const SolFetch = @import("src/build/SolFetch.zig");
 
@@ -58,6 +59,7 @@ pub fn build(b: *Build) !void {
 
         const examples_modules = [_]struct { name: []const u8, mod: *Build.Module }{
             .{ .name = "ex_text", .mod = text_example.module },
+            .{ .name = "ex_shape", .mod = shape_example.module },
         };
 
         for (examples_modules) |ex| {
