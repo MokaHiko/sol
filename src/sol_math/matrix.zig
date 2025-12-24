@@ -1,3 +1,4 @@
+const Vec2 = @import("math.zig").Vec2;
 const Vec3 = @import("math.zig").Vec3;
 const Vec4 = @import("math.zig").Vec4;
 
@@ -81,8 +82,15 @@ pub const Mat4 = struct {
     /// Returns the element at the given coordinates (row, col).
     /// The matrix is stored in column-major order, so internally this reads
     /// from `self._m[col][row]`.
-    pub fn at(self: Mat4, coords: struct { u64, u64 }) f32 {
-        return self._m[coords.@"1"][coords.@"0"];
+    pub fn at(self: Mat4, coords: struct { usize, usize }) f32 {
+        const row: usize = coords.@"0";
+        const col: usize = coords.@"1";
+
+        if (row > 3 or col > 3) {
+            return -1;
+        }
+
+        return self._m[col][row];
     }
 
     /// Sets the element at the given coordinates (row, col) = `val`.
@@ -151,7 +159,7 @@ pub const Mat4 = struct {
     /// Posted by shoosh, modified by community. See post 'Timeline' for change history
     /// Retrieved 2025-11-10, License - CC BY-SA 3.0
     pub fn inverse(self: Mat4) Error!Mat4 {
-        var result = Mat4.zero();
+        var result = Mat4.zero;
 
         var inv = @as(*[16]f32, @ptrCast(&result));
         const m = @as(*const [16]f32, @ptrCast(&self));
@@ -282,5 +290,64 @@ pub const Mat4 = struct {
         }
 
         return result;
+    }
+};
+
+pub const Mat3 = struct {
+    _m: [3]@Vector(3, f32),
+
+    /// Returns the identity matrix.
+    pub const identity: Mat3 = .{ ._m = .{
+        @Vector(3, f32){ 1, 0, 0 },
+        @Vector(3, f32){ 0, 1, 0 },
+        @Vector(3, f32){ 0, 0, 1 },
+    } };
+
+    pub const zero: Mat4 = .{ ._m = .{
+        @Vector(3, f32){ 0, 0, 0 },
+        @Vector(3, f32){ 0, 0, 0 },
+        @Vector(3, f32){ 0, 0, 0 },
+    } };
+
+    pub fn translate(p: Vec2) Mat3 {
+        return .{ ._m = [4]@Vector(4, f32){
+            @Vector(4, f32){ 1, 0, 0, 0 },
+            @Vector(4, f32){ 0, 1, 0, 0 },
+            @Vector(4, f32){ 0, 0, 1, 0 },
+            @Vector(4, f32){ p._v[0], p._v[1], p._v[2], 1 },
+        } };
+    }
+
+    pub fn scale(s: Vec2) Mat4 {
+        return .{ ._m = [4]@Vector(4, f32){
+            @Vector(3, f32){ s._v[0], 0, 0 },
+            @Vector(3, f32){ 0, s._v[1], 0 },
+            @Vector(3, f32){ 0, 0, s._v[2] },
+        } };
+    }
+
+    /// Multiplies this matrix (`self`) by another matrix (`right`) and returns the result.
+    ///
+    /// Mathematically:
+    /// `result = self * right`
+    pub fn mul(self: Mat3, right: Mat3) Mat3 {
+        var result = Mat3.zero;
+
+        for (0..3) |c| {
+            const rcol = right._m[c];
+
+            result._m[c] =
+                self._m[0] * @Vector(3, f32){ rcol[0], rcol[0], rcol[0] } +
+                self._m[1] * @Vector(3, f32){ rcol[1], rcol[1], rcol[1] } +
+                self._m[2] * @Vector(3, f32){ rcol[2], rcol[2], rcol[2] };
+        }
+
+        return result;
+    }
+
+    pub fn mul_vec(self: Mat3, right: Vec3) Vec3 {
+        return Vec3{ ._v = self._m[0] * @as(@Vector(3, f32), @splat(right._v[0])) +
+            self._m[1] * @as(@Vector(3, f32), @splat(right._v[1])) +
+            self._m[2] * @as(@Vector(3, f32), @splat(right._v[2])) };
     }
 };

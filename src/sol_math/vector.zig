@@ -1,3 +1,10 @@
+pub const Vec2 = struct {
+    pub const zero: Vec2 = .{ ._v = @Vector(2, f32){ 0, 0 } };
+    pub const one: Vec2 = .{ ._v = @Vector(2, f32){ 1, 1 } };
+
+    _v: @Vector(2, f32),
+};
+
 pub const Vec3 = struct {
     pub const right = Vec3.new(1, 0, 0);
     pub const up = Vec3.new(0, 1, 0);
