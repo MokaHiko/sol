@@ -10,6 +10,9 @@ pub const RGBA = struct {
     a: f32,
 
     pub const black: RGBA = RGBA.new(0.0, 0.0, 0.0, 0.0);
+    pub const red: RGBA = RGBA.new(1.0, 0.0, 0.0, 1.0);
+    pub const green: RGBA = RGBA.new(0.0, 1.0, 0.0, 1.0);
+    pub const blue: RGBA = RGBA.new(0.0, 0.0, 1.0, 1.0);
 
     pub fn new(r: f32, g: f32, b: f32, a: f32) RGBA {
         return .{ .r = r, .g = g, .b = b, .a = a };
@@ -30,6 +33,20 @@ pub const RGBA = struct {
         }
 
         return .{ .r = c[0], .g = c[1], .b = c[2], .a = c[3] };
+    }
+
+    pub fn fromU32(val: u32) RGBA {
+        const r: f32 = @as(f32, @floatFromInt(val >> 24 & 0xFF)) / 255.0;
+        const g: f32 = @as(f32, @floatFromInt(val >> 16 & 0xFF)) / 255.0;
+        const b: f32 = @as(f32, @floatFromInt(val >> 8 & 0xFF)) / 255.0;
+        const a: f32 = @as(f32, @floatFromInt(val & 0xFF)) / 255.0;
+
+        return .{
+            .r = r,
+            .g = g,
+            .b = b,
+            .a = a,
+        };
     }
 
     pub fn asU32(self: RGBA) u32 {

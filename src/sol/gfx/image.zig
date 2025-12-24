@@ -4,6 +4,10 @@ pub const Image = switch (builtin.os.tag) {
     else => @import("sokol/SokolImage.zig"),
 };
 
+pub const ImageView = switch (builtin.os.tag) {
+    else => @import("sokol/SokolImageView.zig"),
+};
+
 pub const Format = enum {
     R8,
     RGBA8,
