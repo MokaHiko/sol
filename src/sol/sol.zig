@@ -97,8 +97,7 @@ pub fn App(comptime T: type) type {
             // initial clear color
             self.pass_action.colors[0] = .{
                 .load_action = .CLEAR,
-                // .clear_value = .{ .r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0 },
-                .clear_value = .{ .r = 0.25, .g = 25.0, .b = 25.0, .a = 1.0 },
+                .clear_value = .{ .r = 242.0 / 255.0, .g = 242.0 / 255.0, .b = 242.0 / 255.0, .a = 255.0 },
             };
 
             log.trace("Gfx: {s}", .{@tagName(gfx_native.queryBackend())});
@@ -109,13 +108,6 @@ pub fn App(comptime T: type) type {
             log.trace(" - max vertex attrs: {d}", .{limits.max_vertex_attrs});
             log.trace(" - max image size: {d} b", .{limits.max_image_size_2d});
             log.trace(" - compute: {s}", .{if (features.compute) "true" else "false"});
-
-            // Fs
-            const buffer = try fs.read(allocator, "assets/scripts/app.lua", .{});
-            defer allocator.free(buffer);
-
-            log.trace("size: {d}", .{buffer.len});
-            log.trace("output: {s}", .{buffer});
 
             self.ctx = T.init() catch |e| {
                 log.err("{s}", .{@errorName(e)});
@@ -133,50 +125,51 @@ pub fn App(comptime T: type) type {
             const self: *Self = @ptrCast(@alignCast(sapp.userdata().?));
 
             // call simgui.newFrame() before any ImGui calls
-            // simgui.newFrame(.{
-            //     .width = sapp.width(),
-            //     .height = sapp.height(),
-            //     .delta_time = sapp.frameDuration(),
-            //     .dpi_scale = sapp.dpiScale(),
-            // });
-            //
-            // const backendName: [*c]const u8 = switch (gfx_native.queryBackend()) {
-            //     .D3D11 => "Direct3D11",
-            //     .GLCORE => "OpenGL",
-            //     .GLES3 => "OpenGLES3",
-            //     .METAL_IOS => "Metal iOS",
-            //     .METAL_MACOS => "Metal macOS",
-            //     .METAL_SIMULATOR => "Metal Simulator",
-            //     .WGPU => "WebGPU",
-            //     .DUMMY => "Dummy",
-            // };
-            //
-            // //=== UI CODE STARTS HERE
-            // ig.igSetNextWindowPos(.{ .x = 10, .y = 10 }, ig.ImGuiCond_Once);
-            // ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
-            // if (ig.igBegin("Hello Dear ImGui!", &self.show_first_window, ig.ImGuiWindowFlags_None)) {
-            //     _ = ig.igColorEdit3("Background", &self.pass_action.colors[0].clear_value.r, ig.ImGuiColorEditFlags_None);
-            //     _ = ig.igText("Dear ImGui Version: %s", ig.IMGUI_VERSION);
-            // }
-            // ig.igEnd();
-            //
-            // ig.igSetNextWindowPos(.{ .x = 50, .y = 120 }, ig.ImGuiCond_Once);
-            // ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
-            // if (ig.igBegin("Another Window", &self.show_second_window, ig.ImGuiWindowFlags_None)) {
-            //     _ = ig.igText("Sokol Backend: %s", backendName);
-            // }
-            // ig.igEnd();
+            simgui.newFrame(.{
+                .width = sapp.width(),
+                .height = sapp.height(),
+                .delta_time = sapp.frameDuration(),
+                .dpi_scale = sapp.dpiScale(),
+            });
+
+            const backendName: [*c]const u8 = switch (gfx_native.queryBackend()) {
+                .D3D11 => "Direct3D11",
+                .GLCORE => "OpenGL",
+                .GLES3 => "OpenGLES3",
+                .METAL_IOS => "Metal iOS",
+                .METAL_MACOS => "Metal macOS",
+                .METAL_SIMULATOR => "Metal Simulator",
+                .WGPU => "WebGPU",
+                .DUMMY => "Dummy",
+            };
+
+            //=== UI CODE STARTS HERE
+            ig.igSetNextWindowPos(.{ .x = 10, .y = 10 }, ig.ImGuiCond_Once);
+            ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
+            if (ig.igBegin("Hello Dear ImGui!", &self.show_first_window, ig.ImGuiWindowFlags_None)) {
+                _ = ig.igColorEdit3("Background", &self.pass_action.colors[0].clear_value.r, ig.ImGuiColorEditFlags_None);
+                _ = ig.igText("Dear ImGui Version: %s", ig.IMGUI_VERSION);
+            }
+            ig.igEnd();
+
+            ig.igSetNextWindowPos(.{ .x = 50, .y = 120 }, ig.ImGuiCond_Once);
+            ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
+            if (ig.igBegin("Profile", &self.show_second_window, ig.ImGuiWindowFlags_None)) {
+                _ = ig.igText("Backend: %s", backendName);
+                _ = ig.igText("FPS: %.2f", ig.igGetIO().*.Framerate);
+                _ = ig.igText("ms: %.2f", 1000.0 / ig.igGetIO().*.Framerate);
+            }
+            ig.igEnd();
             // === UI CODE ENDS HERE
 
-            // call simgui.render() inside a sokol-gfx pass
             gfx_native.beginPass(.{ .action = self.pass_action, .swapchain = sglue.swapchain() });
-            // simgui.render();
-
             self.ctx.update() catch |e| {
                 log.err("{s}", .{@errorName(e)});
             };
 
+            simgui.render();
             gfx_native.endPass();
+
             gfx_native.commit();
         }
 
