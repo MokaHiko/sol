@@ -34,7 +34,7 @@ const ExTest = struct {
 };
 
 pub fn main() !void {
-    var app = try sol.App(ExTest).init(.{
+    var app = try sol.App(ExTest).create(.{
         .name = "Texture Rendering",
         .width = 600,
         .height = 800,
