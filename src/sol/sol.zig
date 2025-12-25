@@ -52,15 +52,13 @@ pub fn App(comptime T: type) type {
         show_first_window: bool = true,
         show_second_window: bool = true,
 
+        ctx: T = undefined,
         opts: Options,
 
-        ctx: T,
-
-        pub fn init(opts: Options) !Self {
-            return .{
-                .ctx = undefined,
-                .opts = opts,
-            };
+        pub fn create(opts: Options) !*Self {
+            const app = try allocator.create(Self);
+            app.* = .{ .opts = opts };
+            return app;
         }
 
         pub fn run(self: *Self) !void {
@@ -187,6 +185,7 @@ pub fn App(comptime T: type) type {
             simgui.shutdown();
             gfx_native.shutdown();
 
+            allocator.destroy(self);
             _ = switch (builtin.cpu.arch) {
                 .wasm32, .wasm64 => std.heap.c_allocator,
                 else => gpa.deinit(),
