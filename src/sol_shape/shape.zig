@@ -394,7 +394,6 @@ pub fn frame() void {
         .Circle, .Rect => {
             const color = gfx.color.RGBA.fromU32(shape.tints[lctx]);
             sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
-
             shape.bindings.views[shaders.VIEW_tex] = white_image_view._view;
         },
 

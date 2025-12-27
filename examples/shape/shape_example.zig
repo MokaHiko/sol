@@ -93,7 +93,7 @@ const ExShape = struct {
 };
 
 pub fn main() !void {
-    var app = try sol.App(ExShape).init(.{
+    var app = try sol.App(ExShape).create(.{
         .name = "Shapes",
         .width = 1920,
         .height = 1080,
