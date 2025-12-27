@@ -169,7 +169,8 @@ void main() {
     point += positions[vidx] * radius;
   }
 
-  gl_Position = mvp * vec4(point, 0.0f, 1.0);
+  // gl_Position = mvp * vec4(point, 0.0f, 1.0);
+  gl_Position = mvp * vec4(point, 1.0f, 1.0);
 }
 
 @end
