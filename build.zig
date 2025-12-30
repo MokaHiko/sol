@@ -13,6 +13,7 @@ const SolMath = @import("src/build/SolMath.zig");
 const ShaderBuilder = @import("src/build/ShaderBuilder.zig");
 
 const SolText = @import("src/build/SolText.zig");
+const SolFetch = @import("src/build/SolFetch.zig");
 
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -38,9 +39,22 @@ pub fn build(b: *Build) !void {
         sol.shader_builder,
     );
 
+    const sol_fetch = try SolFetch.init(
+        b,
+        config,
+        sol,
+    );
+    _ = sol_fetch;
+
     if (opt_examples) {
         const TextExample = @import("src/build/SolTextExample.zig");
-        const text_example = try TextExample.init(b, config, sol, sol_math, sol_text);
+        const text_example = try TextExample.init(
+            b,
+            config,
+            sol,
+            sol_math,
+            sol_text,
+        );
 
         const examples_modules = [_]struct { name: []const u8, mod: *Build.Module }{
             .{ .name = "ex_text", .mod = text_example.module },
@@ -90,9 +104,8 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions, name: []const u8) !void {
         .emsdk = opts.sol.dep_emsdk,
         .use_webgl2 = true,
         .use_emmalloc = true,
-        .use_filesystem = true,
         .shell_file_path = opts.sol.shell_file_path,
-        .extra_args = &[_][]const u8{ "-sALLOW_MEMORY_GROWTH", "--preload-file", "assets@/assets" },
+        .extra_args = &[_][]const u8{ "-sALLOW_MEMORY_GROWTH", "-sFETCH=1" },
     });
 
     // attach to default target

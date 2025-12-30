@@ -60,7 +60,6 @@ pub fn init(b: *std.Build, config: Config) !Sol {
         // the C libraries otherwise the C/C++ code won't find C stdlib headers
         const emsdk_incl_path = dep_emsdk.path("upstream/emscripten/cache/sysroot/include");
         dep_cimgui.artifact(cimgui_conf.clib_name).addSystemIncludePath(emsdk_incl_path);
-        // dep_zstbi.module("root").addIncludePath(emsdk_incl_path);
 
         // all C libraries need to depend on the sokol library, when building for
         // WASM this makes sure that the Emscripten SDK has been setup before
