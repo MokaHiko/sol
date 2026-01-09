@@ -1,68 +1,13 @@
-const Self = @This();
-
 const sol = @import("sol");
 
-// Types
+pub const Renderer = @import("TextRenderer.zig");
+
 pub const Font = @import("Font.zig");
 pub const FontAtlas = @import("FontAtlas.zig");
+
 pub const TextMesh = @import("TextMesh.zig");
 
-const text_shaders = @import("text_shaders");
-
-const math = @import("sol_math");
-const Mat4 = math.Mat4;
-const Vec3 = math.Vec3;
-
-const sg = sol.gfx_native;
-var pip: sg.Pipeline = .{};
-var bindings: sg.Bindings = .{};
-var linear_sampler: sg.Sampler = .{};
-
-pub fn init() !void {
-    var pip_desc = sg.PipelineDesc{
-        .shader = sg.makeShader(text_shaders.fontShaderDesc(sg.queryBackend())),
-        .index_type = .UINT16,
-    };
-
-    pip_desc.layout.attrs[0].format = .FLOAT2; // Position
-    pip_desc.layout.attrs[1].format = .FLOAT2; // UV
-
-    pip = sg.makePipeline(pip_desc);
-
-    linear_sampler = sg.makeSampler(.{
-        .min_filter = .LINEAR,
-        .mag_filter = .LINEAR,
-        .wrap_u = .CLAMP_TO_EDGE,
-        .wrap_v = .CLAMP_TO_EDGE,
-    });
-}
-
-pub fn draw(x: i32, y: i32, text_mesh: TextMesh, font_atlas: FontAtlas) void {
-    sg.applyPipeline(pip);
-
-    const window_width: f32 = @floatFromInt(sol.windowWidth());
-    const window_height: f32 = @floatFromInt(sol.windowHeight());
-
-    const proj = Mat4.ortho_rh(0, window_width, 0, window_height, 0.01, 1);
-
-    const px: f32 = @floatFromInt(x);
-    const py: f32 = @floatFromInt(y);
-    const translate = Mat4.translate(Vec3.new(px, py, 0));
-
-    const mvp = proj.mul(translate);
-    sg.applyUniforms(text_shaders.UB_font_properties, sg.asRange(&mvp));
-
-    bindings.vertex_buffers[0] = text_mesh.vb;
-    bindings.index_buffer = text_mesh.ib;
-
-    bindings.views[text_shaders.VIEW_tex] = font_atlas.view;
-    bindings.samplers[text_shaders.SMP_smp] = linear_sampler;
-    sg.applyBindings(bindings);
-
-    sg.draw(0, text_mesh.char_count * 6, 1);
-}
-
-pub fn deinit() !void {
-    sg.destroySampler(linear_sampler);
-    sg.destroyPipeline(Self.pip);
-}
+pub const module = sol.App.ModuleDesc{
+    .T = Renderer,
+    .opts = .{ .mod_type = .Resource },
+};

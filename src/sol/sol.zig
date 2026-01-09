@@ -1,7 +1,8 @@
-const use_docking = @import("build_options").docking;
 const std = @import("std");
 const builtin = @import("builtin");
+const Allocator = std.mem.Allocator;
 
+const use_docking = @import("build_options").docking;
 const ig = if (use_docking) @import("cimgui_docking") else @import("cimgui");
 const sokol = @import("sokol");
 const slog = sokol.log;
@@ -9,11 +10,7 @@ const sapp = sokol.app;
 const sglue = sokol.glue;
 const simgui = sokol.imgui;
 
-// API
-pub const fs = @import("io/file.zig");
-pub const log = @import("logging/logger.zig").Logger(.{ .level = .Debug });
-
-var gpa = @import("std").heap.GeneralPurposeAllocator(.{}).init;
+pub var gpa = @import("std").heap.GeneralPurposeAllocator(.{}).init;
 pub const allocator = switch (builtin.cpu.arch) {
     .wasm32, .wasm64 => std.heap.c_allocator,
     else => blk: {
@@ -21,13 +18,20 @@ pub const allocator = switch (builtin.cpu.arch) {
     },
 };
 
+// Built-in API
+pub const fs = @import("io/file.zig");
+pub const log = @import("logging/logger.zig").Logger(.{ .level = .Debug });
+
 // Temporary alias to the underlying gfx implementation.
 // The graphics abstraction layer is still incomplete, so some libraries may need to access
 // the raw sokol.gfx API directly.
 // TODO: Remove this once sokol is fully wrapped by our abstraction.
 pub const gfx_native = sokol.gfx;
-
 pub const gfx = @import("gfx/gfx.zig");
+
+pub const Error = gfx.Error;
+
+pub const App = @import("App.zig");
 
 // Window api
 pub fn windowWidth() i32 {
@@ -43,158 +47,3 @@ pub const Options = struct {
     width: i32,
     height: i32,
 };
-
-pub fn App(comptime T: type) type {
-    return struct {
-        const Self = @This();
-
-        pass_action: gfx_native.PassAction = .{},
-        show_first_window: bool = true,
-        show_second_window: bool = true,
-
-        ctx: T = undefined,
-        opts: Options,
-
-        pub fn create(opts: Options) !*Self {
-            const app = try allocator.create(Self);
-            app.* = .{ .opts = opts };
-            return app;
-        }
-
-        pub fn run(self: *Self) !void {
-            sapp.run(.{
-                .init_cb = init_cb,
-                .frame_cb = frame_cb,
-                .cleanup_cb = cleanup_cb,
-                .event_cb = event_cb,
-                .window_title = self.opts.name.ptr,
-                .width = self.opts.width,
-                .height = self.opts.height,
-                .icon = .{ .sokol_default = true },
-                .logger = .{ .func = slog.func },
-                .user_data = self,
-            });
-        }
-
-        fn initWError() !void {
-            const self: *Self = @ptrCast(@alignCast(sapp.userdata().?));
-
-            // initialize sokol-gfx
-            gfx_native.setup(.{
-                .environment = sglue.environment(),
-                .logger = .{ .func = slog.func },
-            });
-            // initialize sokol-imgui
-            simgui.setup(.{
-                .logger = .{ .func = slog.func },
-            });
-            if (use_docking) {
-                ig.igGetIO().*.ConfigFlags |= ig.ImGuiConfigFlags_DockingEnable;
-            }
-
-            // initial clear color
-            self.pass_action.colors[0] = .{
-                .load_action = .CLEAR,
-                // .clear_value = .{ .r = 0.0, .g = 0.0, .b = 0.0, .a = 1.0 },
-                .clear_value = .{ .r = 0.25, .g = 25.0, .b = 25.0, .a = 1.0 },
-            };
-
-            log.trace("Gfx: {s}", .{@tagName(gfx_native.queryBackend())});
-
-            // Gfx
-            const limits = gfx_native.queryLimits();
-            const features = gfx_native.queryFeatures();
-            log.trace(" - max vertex attrs: {d}", .{limits.max_vertex_attrs});
-            log.trace(" - max image size: {d} b", .{limits.max_image_size_2d});
-            log.trace(" - compute: {s}", .{if (features.compute) "true" else "false"});
-
-            // Fs
-            const buffer = try fs.read(allocator, "assets/scripts/app.lua", .{});
-            defer allocator.free(buffer);
-
-            log.trace("size: {d}", .{buffer.len});
-            log.trace("output: {s}", .{buffer});
-
-            self.ctx = T.init() catch |e| {
-                log.err("{s}", .{@errorName(e)});
-                return;
-            };
-        }
-
-        export fn init_cb() void {
-            initWError() catch |e| {
-                log.err("{s}", .{@errorName(e)});
-            };
-        }
-
-        export fn frame_cb() void {
-            const self: *Self = @ptrCast(@alignCast(sapp.userdata().?));
-
-            // call simgui.newFrame() before any ImGui calls
-            // simgui.newFrame(.{
-            //     .width = sapp.width(),
-            //     .height = sapp.height(),
-            //     .delta_time = sapp.frameDuration(),
-            //     .dpi_scale = sapp.dpiScale(),
-            // });
-            //
-            // const backendName: [*c]const u8 = switch (gfx_native.queryBackend()) {
-            //     .D3D11 => "Direct3D11",
-            //     .GLCORE => "OpenGL",
-            //     .GLES3 => "OpenGLES3",
-            //     .METAL_IOS => "Metal iOS",
-            //     .METAL_MACOS => "Metal macOS",
-            //     .METAL_SIMULATOR => "Metal Simulator",
-            //     .WGPU => "WebGPU",
-            //     .DUMMY => "Dummy",
-            // };
-            //
-            // //=== UI CODE STARTS HERE
-            // ig.igSetNextWindowPos(.{ .x = 10, .y = 10 }, ig.ImGuiCond_Once);
-            // ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
-            // if (ig.igBegin("Hello Dear ImGui!", &self.show_first_window, ig.ImGuiWindowFlags_None)) {
-            //     _ = ig.igColorEdit3("Background", &self.pass_action.colors[0].clear_value.r, ig.ImGuiColorEditFlags_None);
-            //     _ = ig.igText("Dear ImGui Version: %s", ig.IMGUI_VERSION);
-            // }
-            // ig.igEnd();
-            //
-            // ig.igSetNextWindowPos(.{ .x = 50, .y = 120 }, ig.ImGuiCond_Once);
-            // ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
-            // if (ig.igBegin("Another Window", &self.show_second_window, ig.ImGuiWindowFlags_None)) {
-            //     _ = ig.igText("Sokol Backend: %s", backendName);
-            // }
-            // ig.igEnd();
-            // === UI CODE ENDS HERE
-
-            // call simgui.render() inside a sokol-gfx pass
-            gfx_native.beginPass(.{ .action = self.pass_action, .swapchain = sglue.swapchain() });
-            // simgui.render();
-
-            self.ctx.update() catch |e| {
-                log.err("{s}", .{@errorName(e)});
-            };
-
-            gfx_native.endPass();
-            gfx_native.commit();
-        }
-
-        export fn cleanup_cb() void {
-            const self: *Self = @ptrCast(@alignCast(sapp.userdata().?));
-            self.ctx.deinit();
-
-            simgui.shutdown();
-            gfx_native.shutdown();
-
-            allocator.destroy(self);
-            _ = switch (builtin.cpu.arch) {
-                .wasm32, .wasm64 => std.heap.c_allocator,
-                else => gpa.deinit(),
-            };
-        }
-
-        export fn event_cb(ev: [*c]const sapp.Event) void {
-            // forward input events to sokol-imgui
-            _ = simgui.handleEvent(ev.*);
-        }
-    };
-}
