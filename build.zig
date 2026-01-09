@@ -40,12 +40,19 @@ pub fn build(b: *Build) !void {
         sol.shader_builder,
     );
 
+    const sol_shape = try SolShape.init(
+        b,
+        config,
+        sol,
+        sol_math,
+        sol.shader_builder,
+    );
+
     const sol_fetch = try SolFetch.init(
         b,
         config,
         sol,
     );
-    _ = sol_fetch;
 
     if (opt_examples) {
         const TextExample = @import("src/build/SolTextExample.zig");
@@ -55,6 +62,16 @@ pub fn build(b: *Build) !void {
             sol,
             sol_math,
             sol_text,
+        );
+
+        const ShapeExample = @import("src/build/SolShapeExample.zig");
+        const shape_example = try ShapeExample.init(
+            b,
+            config,
+            sol,
+            sol_math,
+            sol_shape,
+            sol_fetch,
         );
 
         const examples_modules = [_]struct { name: []const u8, mod: *Build.Module }{
