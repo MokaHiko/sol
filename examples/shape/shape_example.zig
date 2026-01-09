@@ -1,103 +1,123 @@
 const sol = @import("sol");
 const gfx = sol.gfx;
 
-const shape = @import("sol_shape");
+const fetch = @import("sol_fetch");
+
+const sol_shape = @import("sol_shape");
+const ShapeRenderer = sol_shape.Renderer;
+
 const zstbi = @import("zstbi");
 
-const ExShape = struct {
-    icon: gfx.Image,
-    icon_view: gfx.ImageView,
+const NumberProvider = struct {
+    my_num: i32,
 
-    dice: gfx.Image,
-    dice_view: gfx.ImageView,
+    pub fn init() !NumberProvider {
+        return .{ .my_num = 24 };
+    }
 
-    pub fn init() !ExShape {
-        try shape.init();
+    pub fn deinit(self: *NumberProvider) void {
+        _ = self;
+    }
+};
 
-        zstbi.init(sol.allocator);
-        defer zstbi.deinit();
+const StreamingShapes = struct {
+    img: gfx.Image = .{},
+    view: gfx.ImageView = .{},
 
-        var icon_data = try zstbi.Image.loadFromMemory(
-            @embedFile("icon.png"),
-            4,
-        );
-        defer icon_data.deinit();
+    fetch_request: ?*fetch.Request,
+    shape_renderer: *ShapeRenderer,
 
-        const icon = try gfx.Image.init(
-            icon_data.data,
-            @intCast(icon_data.width),
-            @intCast(icon_data.height),
-            .RGBA8,
-            .{},
-        );
+    pub fn init(shape_renderer: *ShapeRenderer, np: NumberProvider) !StreamingShapes {
+        const fetch_request = try fetch.request(sol.allocator, .{
+            .method = .GET,
+            .uri = "https://picsum.photos/512/512",
+        });
 
-        const icon_view = try gfx.ImageView.init(
-            icon,
-            .{},
-        );
-
-        var dice_data = try zstbi.Image.loadFromMemory(
-            @embedFile("dice.png"),
-            4,
-        );
-        defer dice_data.deinit();
-
-        const dice = try gfx.Image.init(
-            dice_data.data,
-            @intCast(dice_data.width),
-            @intCast(dice_data.height),
-            .RGBA8,
-            .{},
-        );
-
-        const dice_view = try gfx.ImageView.init(
-            dice,
-            .{},
-        );
+        sol.log.debug("MY NUMBER IS : {d}", .{np.my_num});
 
         return .{
-            .icon = icon,
-            .icon_view = icon_view,
-            .dice = dice,
-            .dice_view = dice_view,
+            .fetch_request = fetch_request,
+            .shape_renderer = shape_renderer,
         };
     }
 
-    pub fn update(self: *ExShape) !void {
+    pub fn frame(self: *StreamingShapes) void {
+        const shape = self.shape_renderer;
+
+        // Check if request is valid and finished.
+        if (self.fetch_request) |req| {
+            if (req.isFinished()) {
+                if (req.isSuccess()) {
+                    zstbi.init(sol.allocator);
+                    zstbi.setFlipVerticallyOnLoad(true);
+                    defer zstbi.deinit();
+
+                    var raw = zstbi.Image.loadFromMemory(
+                        req.getData() orelse @panic("Fetch payload was empty!"),
+                        4,
+                    ) catch @panic("Failed to load image data!");
+                    defer raw.deinit();
+
+                    self.img = gfx.Image.init(
+                        raw.data,
+                        @intCast(raw.width),
+                        @intCast(raw.height),
+                        .RGBA8,
+                        .{},
+                    ) catch @panic("Failed to initialize image!");
+
+                    self.view = gfx.ImageView.init(
+                        self.img,
+                        .{},
+                    ) catch @panic("Fialed to initialize image view");
+
+                    // Invalidate request.
+                    req.deinit(sol.allocator);
+                    self.fetch_request = null;
+                } else {
+                    sol.log.err("Failed to get load image!", .{});
+                }
+            }
+        }
+
+        // Only draw if image has been loaded.
+        if (self.img.isValid()) {
+            shape.drawRect(3, 0, 3, 3, .{ .image_view = self.view });
+            shape.drawCircle(9, 0, 2, .{ .image_view = self.view });
+            shape.drawCircle(3, 5, 2, .{ .image_view = self.view });
+        }
+
         shape.drawCircle(-3, 0, 1, .{ .tint = gfx.color.RGBA.red.asU32() });
-
-        shape.drawRect(3, 0, 3, 3, .{ .image_view = self.icon_view });
-
-        shape.drawCircle(9, 0, 2, .{ .image_view = self.dice_view });
-
-        shape.drawRect(3, -6, 3, 3, .{ .tint = gfx.color.RGBA.blue.asU32() });
-
-        shape.drawCircle(3, 5, 2, .{ .image_view = self.dice_view });
-
         shape.drawCircle(3, 8, 1, .{ .tint = gfx.color.RGBA.red.asU32() });
-
         shape.drawCircle(3, 12, 3, .{ .tint = gfx.color.RGBA.red.asU32() });
-
-        shape.frame();
+        shape.drawRect(3, -6, 3, 3, .{ .tint = gfx.color.RGBA.blue.asU32() });
     }
 
-    pub fn deinit(self: *ExShape) void {
-        self.icon_view.deinit();
-        self.icon.deinit();
+    pub fn deinit(self: *StreamingShapes) void {
+        // Catch early exit with incomplete fetch
+        if (self.fetch_request) |f| {
+            f.deinit(sol.allocator);
+        }
 
-        self.dice_view.deinit();
-        self.dice.deinit();
-
-        shape.deinit();
+        self.view.deinit();
+        self.img.deinit();
     }
 };
 
 pub fn main() !void {
-    var app = try sol.App(ExShape).create(.{
-        .name = "Shapes",
-        .width = 1920,
-        .height = 1080,
-    });
+    var app = try sol.App.create(
+        sol.allocator,
+        &[_]sol.App.ModuleDesc{
+            sol_shape.module,
+            .{ .T = NumberProvider, .opts = .{ .mod_type = .Resource } },
+            .{ .T = StreamingShapes, .opts = .{ .mod_type = .System } },
+        },
+        .{
+            .name = "Streaming + Shapes",
+            .width = 1920,
+            .height = 1080,
+        },
+    );
 
     try app.run();
 }

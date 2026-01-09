@@ -106,7 +106,6 @@ float grid_color(vec2 coord) {
 @end
 
 @program grid vs_grid fs_grid
-
 /// ==============================
 /// ========== Shape ============
 /// ==============================
