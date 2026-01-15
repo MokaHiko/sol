@@ -109,8 +109,8 @@ pub fn main() !void {
         sol.allocator,
         &[_]sol.App.ModuleDesc{
             sol_shape.module,
-            .{ .T = NumberProvider, .opts = .{ .mod_type = .Resource } },
-            .{ .T = StreamingShapes, .opts = .{ .mod_type = .System } },
+            .{ .T = NumberProvider, .opts = .{} },
+            .{ .T = StreamingShapes, .opts = .{} },
         },
         .{
             .name = "Streaming + Shapes",
