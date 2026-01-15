@@ -318,26 +318,28 @@ export fn eventCallback(ev: [*c]const sapp.Event) void {
 
     const event: Event = switch (ev.*.type) {
         .KEY_DOWN => Event.make(Input.EventIds.KeyDown, .{
-            .i32 = @intFromEnum(ev.*.key_code),
+            .int = @intFromEnum(ev.*.key_code),
         }),
 
         .KEY_UP => Event.make(Input.EventIds.KeyUp, .{
-            .i32 = @intFromEnum(ev.*.key_code),
+            .int = @intFromEnum(ev.*.key_code),
         }),
 
         .MOUSE_DOWN => Event.make(Input.EventIds.MouseDown, .{
-            .i32 = @intFromEnum(ev.*.mouse_button),
+            .int = @intFromEnum(ev.*.mouse_button),
         }),
 
         .MOUSE_UP => Event.make(Input.EventIds.MouseUp, .{
-            .i32 = @intFromEnum(ev.*.mouse_button),
+            .int = @intFromEnum(ev.*.mouse_button),
+        }),
+
+        .MOUSE_MOVE => Event.make(Input.EventIds.MouseMove, .{
+            .float2 = .{ ev.*.mouse_x, ev.*.mouse_y },
         }),
 
         // Unhandled events
         else => return,
     };
-
-    // ev.*.mouse_x
 
     self.event_queue.pushEvent(event) catch |e| {
         sol.log.err("Failed to queue event; {s}", .{@errorName(e)});

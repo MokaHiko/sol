@@ -8,8 +8,9 @@ pub const State = enum {
 
 const Data = union {
     ext: *anyopaque,
-    imm: struct { u32, u32 },
-    i32: i32,
+    uint2: struct { u32, u32 },
+    float2: struct { f32, f32 },
+    int: i32,
 };
 
 state: State,

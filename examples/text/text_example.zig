@@ -17,9 +17,9 @@ const BitmapFonts = struct {
         input: *sol.Input,
         text_renderer: *sol_text.Renderer,
     ) !BitmapFonts {
-        const font = try Font.init(sol.allocator, @embedFile("Inter_18pt-Black.ttf"));
-        const font_atlas = try FontAtlas.init(sol.allocator, font);
-        const text_mesh = try TextMesh.init(sol.allocator, &font, "LoremIpsumDolor!");
+        const font: Font = try .init(sol.allocator, @embedFile("Inter_18pt-Black.ttf"));
+        const font_atlas: FontAtlas = try .init(sol.allocator, font);
+        const text_mesh: TextMesh = try .init(sol.allocator, &font, "Boo!");
 
         return .{
             .input = input,
@@ -33,10 +33,6 @@ const BitmapFonts = struct {
 
     pub fn frame(self: *BitmapFonts) void {
         const input = self.input;
-
-        if (input.isMouseButtonDown(.LEFT)) {
-            sol.log.debug("hey", .{});
-        }
 
         if (input.isKeyDown(.W)) {
             self.text.draw(
