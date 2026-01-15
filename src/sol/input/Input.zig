@@ -111,10 +111,12 @@ pub fn isMouseButtonDown(self: Input, btn: MouseButton) ?Float2 {
     return self.mouse_pos;
 }
 
+/// Returns current mouse position.
 pub fn MousePosition(self: Input) Float2 {
     return self.mouse_pos;
 }
 
+/// Returns mouse delta x and y.
 pub fn Axis(self: Input, axis: InputAxis) f32 {
     return switch (axis) {
         .Horizontal => self.mouse_delta.x,
