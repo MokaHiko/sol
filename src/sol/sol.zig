@@ -22,6 +22,9 @@ pub const allocator = switch (builtin.cpu.arch) {
 pub const fs = @import("io/file.zig");
 pub const log = @import("logging/logger.zig").Logger(.{ .level = .Debug });
 
+// Built in modules
+pub const Input = @import("input/Input.zig");
+
 // Temporary alias to the underlying gfx implementation.
 // The graphics abstraction layer is still incomplete, so some libraries may need to access
 // the raw sokol.gfx API directly.
@@ -41,9 +44,3 @@ pub fn windowWidth() i32 {
 pub fn windowHeight() i32 {
     return sapp.height();
 }
-
-pub const Options = struct {
-    name: []const u8,
-    width: i32,
-    height: i32,
-};

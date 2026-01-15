@@ -15,6 +15,11 @@ const simgui = sokol.imgui;
 const sol = @import("sol.zig");
 const Module = @import("Module.zig");
 
+const Event = @import("event/Event.zig");
+const EventQueue = @import("event/EventQueue.zig");
+
+const Input = sol.Input;
+
 pub const Options = struct {
     name: []const u8,
     width: i32,
@@ -24,9 +29,11 @@ pub const Options = struct {
 opts: Options,
 allocator: Allocator,
 
-modules: []Module = undefined,
-module_deps: [][]usize = undefined,
-module_names: [][]const u8 = undefined,
+modules: []Module,
+event_queue: EventQueue,
+
+module_deps: [][]usize,
+module_names: [][]const u8,
 
 // TODO: Move to built in renderer plugin
 pass_action: sol.gfx_native.PassAction = .{},
@@ -34,6 +41,7 @@ show_first_window: bool = true,
 show_second_window: bool = true,
 
 pub const ModuleDesc = struct {
+    instance_ptr: ?*anyopaque = null,
     T: type,
     opts: Module.Options,
 };
@@ -58,6 +66,7 @@ pub const Renderer = struct {
         if (use_docking) {
             ig.igGetIO().*.ConfigFlags |= ig.ImGuiConfigFlags_DockingEnable;
         }
+
         return .{};
     }
 
@@ -72,11 +81,10 @@ pub const Renderer = struct {
 
 pub fn create(allocator: Allocator, requested_modules: []const ModuleDesc, opts: Options) !*App {
     const mod_descs = [_]ModuleDesc{
-        // Built-in modules
-        .{
-            .T = Renderer,
-            .opts = .{ .mod_type = .System },
-        },
+        .{ .T = Allocator, .opts = .{ .scoped = true } },
+        .{ .T = EventQueue, .opts = .{} },
+        .{ .T = Input, .opts = .{} },
+        .{ .T = Renderer, .opts = .{} },
     } ++ requested_modules;
 
     // Resolve dependencies at comptime
@@ -87,20 +95,23 @@ pub fn create(allocator: Allocator, requested_modules: []const ModuleDesc, opts:
     inline for (mod_descs, 0..) |mod, mod_idx| {
         mod_names[mod_idx] = @typeName(mod.T);
 
-        if (!@hasDecl(mod.T, "init")) {
+        if (mod.instance_ptr) |ptr| {
+            mods[mod_idx].ptr = ptr;
+        }
+
+        const has_init = @hasDecl(mod.T, mod.opts.init_fn_name);
+
+        const Args = if (has_init) std.meta.ArgsTuple(@TypeOf(mod.T.init)) else struct {};
+        mods[mod_idx] = comptime Module.init(mod.T, Args, mod.opts);
+
+        if (!has_init) {
+            mod_deps[mod_idx] = try allocator.alloc(usize, 0);
             continue;
         }
 
+        // Parse dependencies via 'init' fn arguments
         const init_info = @typeInfo(@TypeOf(mod.T.init)).@"fn";
 
-        const Args = std.meta.ArgsTuple(@TypeOf(mod.T.init));
-
-        mods[mod_idx] = switch (mod_descs[mod_idx].opts.mod_type) {
-            .Resource => Module.initResource(mod.T, Args, mod.opts),
-            .System => Module.initSystem(mod.T, Args, mod.opts),
-        };
-
-        // Parse dependencies via 'init' fn arguments
         mod_deps[mod_idx] = try allocator.alloc(usize, init_info.params.len);
         inline for (init_info.params, 0..) |param, param_idx| {
             const param_type = param.type orelse break;
@@ -113,19 +124,21 @@ pub fn create(allocator: Allocator, requested_modules: []const ModuleDesc, opts:
 
             comptime var dep_id: ?usize = null;
             inline for (mod_descs, 0..) |other, other_idx| {
-                if (other_idx == mod_idx) {
-                    @compileError("Plugin cannot depend on itself!");
-                }
-
                 if (other.T == dep_type) {
                     dep_id = other_idx;
                     break;
                 }
             }
 
-            mod_deps[mod_idx][param_idx] = dep_id orelse @compileError(
-                @typeName(mod.T) ++ " has unresolved dependency : '" ++ @typeName(dep_type) ++ "'",
-            );
+            if (dep_id) |didx| {
+                if (didx == mod_idx) {
+                    @compileError("Plugin cannot depend on itself!");
+                }
+
+                mod_deps[mod_idx][param_idx] = didx;
+            } else {
+                @compileError(@typeName(mod.T) ++ " has unresolved dependency : '" ++ @typeName(dep_type) ++ "'");
+            }
         }
     }
 
@@ -134,9 +147,14 @@ pub fn create(allocator: Allocator, requested_modules: []const ModuleDesc, opts:
         .opts = opts,
         .allocator = allocator,
         .modules = mods,
-        .module_deps = mod_deps,
         .module_names = mod_names,
+        .module_deps = mod_deps,
+        .event_queue = try EventQueue.init(allocator),
     };
+
+    // TODO: Get from description and do not hard code
+    app.modules[1].ptr = &app.event_queue;
+    app.modules[1].owned = false;
 
     return app;
 }
@@ -161,6 +179,10 @@ fn initWError() !void {
 
     // Allocate and initialize modules
     for (0..self.modules.len) |mod_idx| {
+        if (!self.modules[mod_idx].owned) {
+            continue;
+        }
+
         self.modules[mod_idx].ptr = try self.modules[mod_idx].createFn(self.allocator);
 
         sol.log.debug("[{s}]", .{self.module_names[mod_idx]});
@@ -170,6 +192,7 @@ fn initWError() !void {
             sol.log.debug("- \t {s} ", .{self.module_names[didx]});
         }
 
+        // TODO : Create scratch buffer with the size of arguments instead
         const dep = try self.modules[mod_idx].deps.create(
             self.allocator,
             self.modules,
@@ -177,7 +200,9 @@ fn initWError() !void {
         );
         defer self.modules[mod_idx].deps.destroy(self.allocator, dep);
 
-        try self.modules[mod_idx].initFn(self.modules[mod_idx].ptr, dep);
+        if (self.modules[mod_idx].initFn) |init| {
+            try init(self.modules[mod_idx].ptr, dep);
+        }
     }
 
     // Initial clear color.
@@ -237,7 +262,7 @@ export fn frameCallback() void {
     ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
     if (ig.igBegin("Profile", &self.show_second_window, ig.ImGuiWindowFlags_None)) {
         _ = ig.igText("Backend: %s", backendName);
-        _ = ig.igText("FPS: %.2f", ig.igGetIO().*.Framerate);
+        _ = ig.igText("fps: %.2f", ig.igGetIO().*.Framerate);
         _ = ig.igText("ms: %.2f", 1000.0 / ig.igGetIO().*.Framerate);
     }
     ig.igEnd();
@@ -254,10 +279,14 @@ export fn frameCallback() void {
     simgui.render();
     sol.gfx_native.endPass();
     sol.gfx_native.commit();
+
+    self.event_queue.flush();
 }
 
 export fn cleanupCallback() void {
     const self: *App = @ptrCast(@alignCast(sapp.userdata().?));
+
+    self.allocator.free(self.module_names);
 
     for (self.modules) |*mod| {
         mod.deinit(self.allocator);
@@ -269,11 +298,10 @@ export fn cleanupCallback() void {
     }
     self.allocator.free(self.module_deps);
 
-    self.allocator.free(self.module_names);
-
     simgui.shutdown();
     sol.gfx_native.shutdown();
 
+    self.event_queue.deinit();
     self.allocator.destroy(self);
 
     _ = switch (builtin.cpu.arch) {
@@ -283,6 +311,37 @@ export fn cleanupCallback() void {
 }
 
 export fn eventCallback(ev: [*c]const sapp.Event) void {
+    const self: *App = @ptrCast(@alignCast(sapp.userdata().?));
+
     // forward input events to sokol-imgui
     _ = simgui.handleEvent(ev.*);
+
+    const event: Event = switch (ev.*.type) {
+        .KEY_DOWN => Event.make(Input.EventIds.KeyDown, .{
+            .int = @intFromEnum(ev.*.key_code),
+        }),
+
+        .KEY_UP => Event.make(Input.EventIds.KeyUp, .{
+            .int = @intFromEnum(ev.*.key_code),
+        }),
+
+        .MOUSE_DOWN => Event.make(Input.EventIds.MouseDown, .{
+            .int = @intFromEnum(ev.*.mouse_button),
+        }),
+
+        .MOUSE_UP => Event.make(Input.EventIds.MouseUp, .{
+            .int = @intFromEnum(ev.*.mouse_button),
+        }),
+
+        .MOUSE_MOVE => Event.make(Input.EventIds.MouseMove, .{
+            .float2 = .{ ev.*.mouse_x, ev.*.mouse_y },
+        }),
+
+        // Unhandled events
+        else => return,
+    };
+
+    self.event_queue.pushEvent(event) catch |e| {
+        sol.log.err("Failed to queue event; {s}", .{@errorName(e)});
+    };
 }
