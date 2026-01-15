@@ -9,5 +9,5 @@ pub const TextMesh = @import("TextMesh.zig");
 
 pub const module = sol.App.ModuleDesc{
     .T = Renderer,
-    .opts = .{ .mod_type = .Resource },
+    .opts = .{},
 };
