@@ -1,0 +1,30 @@
+const SolShape = @This();
+
+const std = @import("std");
+const Build = std.Build;
+
+const Config = @import("Config.zig");
+
+const Sol = @import("Sol.zig");
+const SolMath = @import("SolMath.zig");
+const ShaderBuilder = @import("ShaderBuilder.zig");
+
+module: *Build.Module,
+
+pub fn init(b: *std.Build, config: Config, sol: Sol, sol_math: SolMath, shader_builder: ShaderBuilder) !SolShape {
+    const shape_shaders = try shader_builder.createModule("assets/shaders/shape_shaders.glsl");
+
+    const mod = b.addModule("sol_shape", .{
+        .target = config.target,
+        .root_source_file = b.path("src/sol_shape/shape.zig"),
+        .imports = &.{
+            .{ .name = "sol", .module = sol.module },
+            .{ .name = "sol_math", .module = sol_math.module },
+            .{ .name = "shape_shaders", .module = shape_shaders },
+        },
+    });
+
+    return .{
+        .module = mod,
+    };
+}
