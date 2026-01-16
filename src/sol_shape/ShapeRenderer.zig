@@ -1,6 +1,7 @@
 const ShapeRenderer = @This();
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
 
 const sol = @import("sol");
 const sg = sol.gfx_native;
@@ -17,10 +18,20 @@ const GridPipeline = @import("GridPipeline.zig");
 const ShapePipeline = @import("ShapePipeline.zig");
 
 const Limits = struct {
-    const max_shapes: u16 = 128;
-    const max_images: u16 = max_shapes;
+    const max_shapes: u16 = std.math.maxInt(u16);
 };
 
+const Error = error{
+    ExceededMaxShapes,
+};
+
+///
+/// Internally ordered by base type
+/// i.e Circle then variants
+/// ex. Circle + 1 = CircleTextured
+///
+/// Variants are infered by function call and only used internally
+///
 pub const Type = enum(u16) {
     Circle = 0,
     CircleTextured = 1,
@@ -60,19 +71,15 @@ white_image: gfx.Image,
 white_image_view: gfx.ImageView,
 
 // Pipelines
-grid: GridPipeline,
-shape: ShapePipeline,
+grid_pipeline: GridPipeline,
+pipeline: ShapePipeline,
 
-items: [Limits.max_shapes]Shape = undefined,
-len: u16 = 0,
+shapes: std.ArrayList(Shape),
+views: std.ArrayList(gfx.ImageView),
+tints: std.ArrayList(u32),
+allocator: Allocator,
 
-images: [Limits.max_images]gfx.ImageView = undefined,
-nimages: u16 = 0,
-
-tints: [Limits.max_shapes]u32 = undefined,
-ntints: u16 = 0,
-
-pub fn init() !ShapeRenderer {
+pub fn init(allocator: Allocator) !ShapeRenderer {
     // Init common resources.
     const linear_sampler = sg.makeSampler(.{
         .min_filter = .LINEAR,
@@ -92,18 +99,18 @@ pub fn init() !ShapeRenderer {
         .linear_sampler = linear_sampler,
         .white_image = white_image,
         .white_image_view = white_image_view,
-        .grid = grid_pipeline,
-        .shape = shape_pipeline,
+        .grid_pipeline = grid_pipeline,
+        .pipeline = shape_pipeline,
+
+        .allocator = allocator,
+        .views = try .initCapacity(allocator, 0),
+        .shapes = try .initCapacity(allocator, 0),
+        .tints = try .initCapacity(allocator, 0),
     };
 }
 
 pub fn drawCircle(self: *ShapeRenderer, x: i32, y: i32, r: f32, opts: DrawOptions) void {
-    if (self.len > Limits.max_shapes) {
-        sol.log.err("Exceeded max circles count {d}!", .{Limits.max_shapes});
-        return;
-    }
-
-    self.items[self.len] = .{
+    const shape: Shape = .{
         .x = @floatFromInt(x),
         .y = @floatFromInt(y),
         .data = .{
@@ -113,51 +120,13 @@ pub fn drawCircle(self: *ShapeRenderer, x: i32, y: i32, r: f32, opts: DrawOption
         .type = .Circle,
     };
 
-    var tint_found: bool = false;
-    for (0..self.ntints) |tint_idx| {
-        if (self.tints[tint_idx] == opts.tint) {
-            self.items[self.len].ctx = @intCast(tint_idx);
-            tint_found = true;
-            break;
-        }
-    }
-
-    if (!tint_found) {
-        self.tints[self.ntints] = opts.tint;
-        self.items[self.len].ctx = self.ntints;
-        self.ntints += 1;
-    }
-
-    if (opts.image_view) |img| {
-        self.items[self.len].type = .CircleTextured;
-
-        var img_found: bool = false;
-        for (0..self.nimages) |img_idx| {
-            if (self.images[img_idx].gpuHandle() == img.gpuHandle()) {
-                self.items[self.len].ctx = @intCast(img_idx);
-                img_found = true;
-                break;
-            }
-        }
-
-        if (!img_found) {
-            self.images[self.nimages] = img;
-            self.items[self.len].ctx = self.nimages;
-
-            self.nimages += 1;
-        }
-    }
-
-    self.len += 1;
+    self.drawShape(shape, opts) catch |e| {
+        sol.log.err("{s}", .{@errorName(e)});
+    };
 }
 
 pub fn drawRect(self: *ShapeRenderer, x: i32, y: i32, l: i32, w: i32, opts: DrawOptions) void {
-    if (self.len > Limits.max_shapes) {
-        sol.log.err("Exceeded max shape count {d}!", .{Limits.max_shapes});
-        return;
-    }
-
-    self.items[self.len] = .{
+    const shape: Shape = .{
         .x = @floatFromInt(x),
         .y = @floatFromInt(y),
         .data = .{
@@ -170,48 +139,62 @@ pub fn drawRect(self: *ShapeRenderer, x: i32, y: i32, l: i32, w: i32, opts: Draw
         .ctx = 0,
     };
 
+    self.drawShape(shape, opts) catch |e| {
+        sol.log.err("{s}", .{@errorName(e)});
+    };
+}
+
+fn drawShape(
+    self: *ShapeRenderer,
+    base: Shape,
+    opts: DrawOptions,
+) !void {
+    if (self.shapes.items.len >= Limits.max_shapes) {
+        return Error.ExceededMaxShapes;
+    }
+
+    var shape: Shape = base;
+
     var tint_found: bool = false;
-    for (0..self.ntints) |tint_idx| {
-        if (self.tints[tint_idx] == opts.tint) {
-            self.items[self.len].ctx = @intCast(tint_idx);
+    for (self.tints.items, 0..) |tint, i| {
+        if (tint == opts.tint) {
+            shape.ctx = @intCast(i);
             tint_found = true;
             break;
         }
     }
 
     if (!tint_found) {
-        self.tints[self.ntints] = opts.tint;
-        self.items[self.len].ctx = self.ntints;
-        self.ntints += 1;
+        try self.tints.append(self.allocator, opts.tint);
+        shape.ctx = @intCast(self.tints.items.len - 1);
     }
 
-    if (opts.image_view) |img| {
-        self.items[self.len].type = .RectTextured;
+    if (opts.image_view) |view| {
+        const type_id: u16 = @intFromEnum(shape.type);
+        shape.type = @enumFromInt(type_id + 1);
 
         var img_found: bool = false;
-        for (0..self.nimages) |img_idx| {
-            if (self.images[img_idx].gpuHandle() == img.gpuHandle()) {
-                self.items[self.len].ctx = @intCast(img_idx);
+        for (self.views.items, 0..) |sview, i| {
+            if (sview.gpuHandle() == view.gpuHandle()) {
+                shape.ctx = @intCast(i);
                 img_found = true;
                 break;
             }
         }
 
         if (!img_found) {
-            self.images[self.nimages] = img;
-            self.items[self.len].ctx = self.nimages;
-
-            self.nimages += 1;
+            try self.views.append(self.allocator, view);
+            shape.ctx = @intCast(self.views.items.len - 1);
         }
     }
 
-    self.len += 1;
+    try self.shapes.append(self.allocator, shape);
 }
 
 pub fn frame(self: *ShapeRenderer) void {
     // TODO: Get camera via DI
     const camera_pos = Vec3.new(1, 0, 0);
-    const zoom = 0.25;
+    const zoom = 0.05;
 
     const window_width: f32 = @floatFromInt(sol.windowWidth());
     const window_height: f32 = @floatFromInt(sol.windowHeight());
@@ -231,7 +214,7 @@ pub fn frame(self: *ShapeRenderer) void {
     // ========== Grid ==============
     // ==============================
     const inv_view_proj = view_proj.inverse() catch unreachable;
-    sg.applyPipeline(self.grid.pip);
+    sg.applyPipeline(self.grid_pipeline.pip);
     var props = shaders.GridProps{
         .inv_view_proj = undefined,
         .resolution = .{
@@ -252,33 +235,56 @@ pub fn frame(self: *ShapeRenderer) void {
     // ==============================
     // ========== Shape =============
     // ==============================
-    if (self.len == 0) {
+    const shapes = self.shapes.items;
+    const tints = self.tints.items;
+    const views = self.views.items;
+
+    if (shapes.len == 0) {
         return;
     }
 
     std.sort.insertion(
         Shape,
-        self.items[0..self.len],
+        shapes,
         {},
         sortByTypeAndContext,
     );
 
-    sg.updateBuffer(self.shape.vbo, sg.asRange(self.items[0..self.len]));
+    // TODO: Move to shape pipeline or shape pipeline here
+    // Resize if missing
+    const shapes_size = shapes.len * @bitSizeOf(Shape);
+    if (sg.queryBufferSize(self.pipeline.vbo) < shapes_size) {
+        sg.destroyBuffer(self.pipeline.vbo);
 
-    sg.applyPipeline(self.shape.pip);
+        const shape_vbo = sg.makeBuffer(.{
+            .usage = .{
+                .vertex_buffer = true,
+                .immutable = false,
+                .dynamic_update = true,
+            },
+            .size = shapes_size,
+        });
+
+        self.pipeline.vbo = shape_vbo;
+        self.pipeline.bindings.vertex_buffers[0] = shape_vbo;
+    }
+
+    sg.updateBuffer(self.pipeline.vbo, sg.asRange(shapes));
+
+    sg.applyPipeline(self.pipeline.pip);
     var base_vertex: u32 = 0;
     var instance_count: u32 = 0;
 
-    var lctx: u16 = self.items[0].ctx;
-    var ltype: Type = self.items[0].type;
+    var lctx: u16 = shapes[0].ctx;
+    var ltype: Type = shapes[0].type;
 
-    for (self.items[0..self.len]) |s| {
-        if (lctx == s.ctx and ltype == s.type) {
+    for (shapes) |shape| {
+        if (lctx == shape.ctx and ltype == shape.type) {
             instance_count += 1;
             continue;
         }
 
-        self.shape.bindings.vertex_buffer_offsets[0] = @intCast(base_vertex * @sizeOf(Shape));
+        self.pipeline.bindings.vertex_buffer_offsets[0] = @intCast(base_vertex * @sizeOf(Shape));
 
         const px: f32 = @floatFromInt(0);
         const py: f32 = @floatFromInt(0);
@@ -289,34 +295,34 @@ pub fn frame(self: *ShapeRenderer) void {
 
         switch (ltype) {
             .Circle, .Rect => {
-                const color = gfx.color.RGBA.fromU32(self.tints[lctx]);
+                const color = gfx.color.RGBA.fromU32(tints[lctx]);
                 sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
 
-                self.shape.bindings.views[shaders.VIEW_tex] = self.white_image_view._view;
+                self.pipeline.bindings.views[shaders.VIEW_tex] = self.white_image_view._view;
             },
 
             .CircleTextured, .RectTextured => {
                 const color = gfx.color.RGBA.fromU32(0xFFFFFFFF);
                 sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
 
-                self.shape.bindings.views[shaders.VIEW_tex] = self.images[lctx]._view;
+                self.pipeline.bindings.views[shaders.VIEW_tex] = views[lctx]._view;
             },
 
             else => unreachable,
         }
 
-        sg.applyBindings(self.shape.bindings);
+        sg.applyBindings(self.pipeline.bindings);
         sg.draw(0, 6, instance_count);
 
         // Update bindings
-        lctx = s.ctx;
-        ltype = s.type;
+        lctx = shape.ctx;
+        ltype = shape.type;
         base_vertex += instance_count;
         instance_count = 1;
     }
 
     // Draw with last bindings
-    self.shape.bindings.vertex_buffer_offsets[0] = @intCast(base_vertex * @sizeOf(Shape));
+    self.pipeline.bindings.vertex_buffer_offsets[0] = @intCast(base_vertex * @sizeOf(Shape));
 
     const px: f32 = @floatFromInt(0);
     const py: f32 = @floatFromInt(0);
@@ -327,32 +333,36 @@ pub fn frame(self: *ShapeRenderer) void {
 
     switch (ltype) {
         .Circle, .Rect => {
-            const color = gfx.color.RGBA.fromU32(self.tints[lctx]);
+            const color = gfx.color.RGBA.fromU32(tints[lctx]);
             sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
-            self.shape.bindings.views[shaders.VIEW_tex] = self.white_image_view._view;
+            self.pipeline.bindings.views[shaders.VIEW_tex] = self.white_image_view._view;
         },
 
         .CircleTextured, .RectTextured => {
             const color = gfx.color.RGBA.fromU32(0xFFFFFFFF);
             sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
 
-            self.shape.bindings.views[shaders.VIEW_tex] = self.images[lctx]._view;
+            self.pipeline.bindings.views[shaders.VIEW_tex] = views[lctx]._view;
         },
 
         else => unreachable,
     }
 
-    sg.applyBindings(self.shape.bindings);
+    sg.applyBindings(self.pipeline.bindings);
     sg.draw(0, 6, instance_count);
 
-    self.len = 0;
-    self.nimages = 0;
-    self.ntints = 0;
+    self.shapes.clearRetainingCapacity();
+    self.tints.clearRetainingCapacity();
+    self.views.clearRetainingCapacity();
 }
 
 pub fn deinit(self: *ShapeRenderer) void {
-    self.shape.deinit();
-    self.grid.deinit();
+    self.pipeline.deinit();
+    self.grid_pipeline.deinit();
+
+    self.shapes.deinit(self.allocator);
+    self.tints.deinit(self.allocator);
+    self.views.deinit(self.allocator);
 }
 
 fn sortByTypeAndContext(_: void, a: Shape, b: Shape) bool {

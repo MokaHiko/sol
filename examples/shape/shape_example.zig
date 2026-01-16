@@ -1,3 +1,6 @@
+const std = @import("std");
+const Allocator = std.mem.Allocator;
+
 const sol = @import("sol");
 const gfx = sol.gfx;
 
@@ -8,36 +11,46 @@ const ShapeRenderer = sol_shape.Renderer;
 
 const zstbi = @import("zstbi");
 
-const NumberProvider = struct {
-    my_num: i32,
-
-    pub fn init() !NumberProvider {
-        return .{ .my_num = 24 };
-    }
-
-    pub fn deinit(self: *NumberProvider) void {
-        _ = self;
-    }
-};
-
 const StreamingShapes = struct {
-    img: gfx.Image = .{},
-    view: gfx.ImageView = .{},
-
-    fetch_request: ?*fetch.Request,
+    gpa: Allocator,
+    input: *sol.Input,
     shape_renderer: *ShapeRenderer,
 
-    pub fn init(shape_renderer: *ShapeRenderer, np: NumberProvider) !StreamingShapes {
-        const fetch_request = try fetch.request(sol.allocator, .{
+    shape_variants: []i32,
+
+    img: gfx.Image = .{},
+    view: gfx.ImageView = .{},
+    fetch_request: ?*fetch.Request,
+
+    pub fn init(
+        gpa: Allocator,
+        input: *sol.Input,
+        shape_renderer: *ShapeRenderer,
+    ) !StreamingShapes {
+        const fetch_request = try fetch.request(gpa, .{
             .method = .GET,
             .uri = "https://picsum.photos/512/512",
         });
 
-        sol.log.debug("MY NUMBER IS : {d}", .{np.my_num});
+        var prng: std.Random.DefaultPrng = .init(blk: {
+            var seed: u64 = undefined;
+            try std.posix.getrandom(std.mem.asBytes(&seed));
+            break :blk seed;
+        });
+        const rand = prng.random();
+
+        var shape_types = try gpa.alloc(i32, 5000);
+        for (0..shape_types.len) |i| {
+            shape_types[i] = rand.intRangeAtMost(i32, 0, 2);
+        }
 
         return .{
-            .fetch_request = fetch_request,
+            .gpa = gpa,
+            .input = input,
             .shape_renderer = shape_renderer,
+
+            .fetch_request = fetch_request,
+            .shape_variants = shape_types,
         };
     }
 
@@ -69,7 +82,7 @@ const StreamingShapes = struct {
                     self.view = gfx.ImageView.init(
                         self.img,
                         .{},
-                    ) catch @panic("Fialed to initialize image view");
+                    ) catch @panic("Failed to initialize image view");
 
                     // Invalidate request.
                     req.deinit(sol.allocator);
@@ -80,20 +93,53 @@ const StreamingShapes = struct {
             }
         }
 
-        // Only draw if image has been loaded.
-        if (self.img.isValid()) {
-            shape.drawRect(3, 0, 3, 3, .{ .image_view = self.view });
-            shape.drawCircle(9, 0, 2, .{ .image_view = self.view });
-            shape.drawCircle(3, 5, 2, .{ .image_view = self.view });
-        }
+        const s: i32 = @intFromFloat(@sqrt(@as(f32, @floatFromInt(self.shape_variants.len))));
+        const shalf: i32 = @divFloor(s, 2);
+        const r: i32 = 1;
 
-        shape.drawCircle(-3, 0, 1, .{ .tint = gfx.color.RGBA.red.asU32() });
-        shape.drawCircle(3, 8, 1, .{ .tint = gfx.color.RGBA.red.asU32() });
-        shape.drawCircle(3, 12, 3, .{ .tint = gfx.color.RGBA.red.asU32() });
-        shape.drawRect(3, -6, 3, 3, .{ .tint = gfx.color.RGBA.blue.asU32() });
+        var y: i32 = -shalf;
+        while (y < shalf) : (y += r * 2) {
+            var x: i32 = -shalf;
+            while (x < shalf) : (x += r * 2) {
+                const shape_idx: usize = @intCast((y + shalf) * s + (x + shalf));
+                const shape_type: i32 = self.shape_variants[shape_idx];
+
+                const ns: f32 = @floatFromInt(s * 2);
+                const nx: f32 = @floatFromInt(x + s);
+                const ny: f32 = @floatFromInt(y + s);
+
+                if (shape_type == 0) {
+                    shape.drawCircle(x, y, 1, .{
+                        .tint = gfx.color.RGBA.new(
+                            nx / ns,
+                            ny / ns,
+                            0.0,
+                            1.0,
+                        ).asU32(),
+                    });
+                } else if (shape_type == 1) {
+                    if (self.img.isValid()) {
+                        shape.drawCircle(x, y, 1, .{
+                            .image_view = self.view,
+                        });
+                    }
+                } else if (shape_type == 2) {
+                    shape.drawRect(x, y, 1, 1, .{
+                        .tint = gfx.color.RGBA.new(
+                            nx / ns,
+                            ny / ns,
+                            0.0,
+                            1.0,
+                        ).asU32(),
+                    });
+                }
+            }
+        }
     }
 
     pub fn deinit(self: *StreamingShapes) void {
+        self.gpa.free(self.shape_variants);
+
         // Catch early exit with incomplete fetch
         if (self.fetch_request) |f| {
             f.deinit(sol.allocator);
@@ -109,11 +155,10 @@ pub fn main() !void {
         sol.allocator,
         &[_]sol.App.ModuleDesc{
             sol_shape.module,
-            .{ .T = NumberProvider, .opts = .{} },
             .{ .T = StreamingShapes, .opts = .{} },
         },
         .{
-            .name = "Streaming + Shapes",
+            .name = "Streaming and Shapes",
             .width = 1920,
             .height = 1080,
         },

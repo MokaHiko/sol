@@ -11,8 +11,7 @@ const Shape = @import("ShapeRenderer.zig").Shape;
 const Type = @import("ShapeRenderer.zig").Type;
 
 const Limits = struct {
-    const max_shapes: u16 = 128;
-    const max_images: u16 = max_shapes;
+    const start_size: u16 = 128;
 };
 
 vbo: sg.Buffer = .{},
@@ -49,7 +48,7 @@ pub fn init(white: gfx.ImageView, linear_sampler: sg.Sampler) !ShapePipeline {
             .immutable = false,
             .dynamic_update = true,
         },
-        .size = Limits.max_shapes * @sizeOf(Shape),
+        .size = Limits.start_size * @sizeOf(Shape),
     });
 
     var bindings: sg.Bindings = .{};

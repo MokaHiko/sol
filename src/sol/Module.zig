@@ -45,7 +45,7 @@ pub const Dependencies = struct {
                 inline for (arg_info.fields, 0..) |field, didx| {
                     if (field.type == Allocator) {
                         @field(args, field.name) = allocator;
-                        break;
+                        continue;
                     }
 
                     @field(args, field.name) = switch (@typeInfo(field.type)) {

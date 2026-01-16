@@ -106,6 +106,7 @@ float grid_color(vec2 coord) {
 @end
 
 @program grid vs_grid fs_grid
+
 /// ==============================
 /// ========== Shape ============
 /// ==============================
@@ -168,7 +169,6 @@ void main() {
     point += positions[vidx] * radius;
   }
 
-  // gl_Position = mvp * vec4(point, 0.0f, 1.0);
   gl_Position = mvp * vec4(point, 1.0f, 1.0);
 }
 
