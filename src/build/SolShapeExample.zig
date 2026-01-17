@@ -7,6 +7,7 @@ const Config = @import("Config.zig");
 
 const Sol = @import("Sol.zig");
 const SolMath = @import("SolMath.zig");
+const SolCamera = @import("SolCamera.zig");
 const SolShape = @import("SolShape.zig");
 const SolFetch = @import("SolFetch.zig");
 
@@ -17,6 +18,7 @@ pub fn init(
     config: Config,
     sol: Sol,
     sol_math: SolMath,
+    sol_camera: SolCamera,
     sol_shape: SolShape,
     sol_fetch: SolFetch,
 ) !SolShapeExample {
@@ -34,6 +36,7 @@ pub fn init(
         .imports = &.{
             .{ .name = "sol", .module = sol.module },
             .{ .name = "sol_math", .module = sol_math.module },
+            .{ .name = "sol_camera", .module = sol_camera.module },
             .{ .name = "sol_shape", .module = sol_shape.module },
             .{ .name = "sol_fetch", .module = sol_fetch.module },
             .{ .name = "zstbi", .module = dep_zstbi.module("root") },

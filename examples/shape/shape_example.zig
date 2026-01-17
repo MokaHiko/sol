@@ -4,7 +4,10 @@ const Allocator = std.mem.Allocator;
 const sol = @import("sol");
 const gfx = sol.gfx;
 
-const fetch = @import("sol_fetch");
+const sol_fetch = @import("sol_fetch");
+
+const sol_camera = @import("sol_camera");
+const MainCamera = sol_camera.MainCamera;
 
 const sol_shape = @import("sol_shape");
 const ShapeRenderer = sol_shape.Renderer;
@@ -20,20 +23,24 @@ const ShapeVariant = enum(i32) {
 const StreamingShapes = struct {
     gpa: Allocator,
     input: *sol.Input,
+    main_camera: *MainCamera,
     shape_renderer: *ShapeRenderer,
 
     shape_variants: []ShapeVariant,
 
     img: gfx.Image = .{},
     view: gfx.ImageView = .{},
-    fetch_request: ?*fetch.Request,
+    fetch_request: ?*sol_fetch.Request,
+
+    zoom: f32 = 1.0,
 
     pub fn init(
         gpa: Allocator,
         input: *sol.Input,
+        main_camera: *MainCamera,
         shape_renderer: *ShapeRenderer,
     ) !StreamingShapes {
-        const fetch_request = try fetch.request(gpa, .{
+        const fetch_request = try sol_fetch.request(gpa, .{
             .method = .GET,
             .uri = "https://picsum.photos/512/512",
         });
@@ -57,6 +64,7 @@ const StreamingShapes = struct {
         return .{
             .gpa = gpa,
             .input = input,
+            .main_camera = main_camera,
             .shape_renderer = shape_renderer,
 
             .fetch_request = fetch_request,
@@ -65,6 +73,23 @@ const StreamingShapes = struct {
     }
 
     pub fn frame(self: *StreamingShapes) void {
+        const input = self.input;
+        const main_cam = self.main_camera;
+
+        if (input.isKeyDown(.LEFT_SUPER) and input.isKeyDown(.EQUAL)) {
+            self.zoom += 0.01;
+            main_cam.*.camera.setOrthogonal(self.zoom, 0.1, 1.0);
+        }
+
+        if (input.isKeyDown(.LEFT_SUPER) and input.isKeyDown(.MINUS)) {
+            self.zoom -= 0.01;
+            if (self.zoom <= 0.0) {
+                self.zoom = 0.01;
+            }
+
+            main_cam.*.camera.setOrthogonal(self.zoom, 0.1, 1.0);
+        }
+
         const shape = self.shape_renderer;
 
         // Check if request is valid and finished.
@@ -112,7 +137,6 @@ const StreamingShapes = struct {
             var x: i32 = -shalf;
             while (x < shalf) : (x += 1) {
                 const shape_idx: usize = @intCast((y + shalf) * s + (x + shalf));
-
                 switch (self.shape_variants[shape_idx]) {
                     .GreenCircle => {
                         shape.drawCircle(x * r * 2, y * r * 2, 1, .{
@@ -162,6 +186,7 @@ pub fn main() !void {
     var app = try sol.App.create(
         sol.allocator,
         &[_]sol.App.ModuleDesc{
+            sol_camera.module,
             sol_shape.module,
             .{ .T = StreamingShapes, .opts = .{} },
         },
