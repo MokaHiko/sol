@@ -6,6 +6,7 @@ const Build = std.Build;
 const Config = @import("Config.zig");
 const cimgui = @import("cimgui");
 
+const Tracy = @import("Tracy.zig");
 const ShaderBuilder = @import("ShaderBuilder.zig");
 
 shader_builder: ShaderBuilder,
@@ -14,7 +15,7 @@ module: *Build.Module,
 dep_emsdk: *Build.Dependency,
 shell_file_path: Build.LazyPath,
 
-pub fn init(b: *std.Build, config: Config) !Sol {
+pub fn init(b: *std.Build, config: Config, tracy: Tracy) !Sol {
     const opt_docking = b.option(bool, "docking", "Build with docking support") orelse false;
 
     // Get the matching Zig module name, C header search path and C library for
@@ -45,8 +46,14 @@ pub fn init(b: *std.Build, config: Config) !Sol {
             .{ .name = "sokol", .module = dep_sokol.module("sokol") },
             .{ .name = cimgui_conf.module_name, .module = dep_cimgui.module(cimgui_conf.module_name) },
             .{ .name = "shaders", .module = try shader_builder.createModule("assets/shaders/sol_shaders.glsl") },
+            .{ .name = "tracy", .module = tracy.module },
         },
     });
+
+    if (tracy.enabled) {
+        mod.link_libcpp = true;
+        mod.linkLibrary(tracy.artifact);
+    }
 
     const mod_options = b.addOptions();
     mod_options.addOption(bool, "docking", opt_docking);

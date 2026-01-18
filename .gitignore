@@ -1,3 +1,4 @@
 zig-*/
 .zig-*/
 .vscode/
+.markdownlint.json

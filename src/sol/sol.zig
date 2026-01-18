@@ -18,6 +18,9 @@ pub const allocator = switch (builtin.cpu.arch) {
     },
 };
 
+// Profiling via Tracy
+pub const tracy = @import("tracy");
+
 // Built-in API
 pub const fs = @import("io/file.zig");
 pub const log = @import("logging/logger.zig").Logger(.{ .level = .Debug });

@@ -1,19 +1,52 @@
 <div align="center">
-  <img src="assets/textures/icon.png" alt="Sol icon">
+  <img src="assets/textures/icon.png" alt="Sol icon" width="128">
   <h1>Sol</h1>
-  <p>Written in Zig 0.15.1+ (nightly recommended)</p>
+  <p>Written in Zig 0.15.1</p>
 </div>
 
-⚠️ Early-stage experimental framework.
+⚠️ **Early-stage, experimental framework**
 
-Sol is a simple, opinionated, cross-platform app framework in Zig,
-blending a modern widget UI with powerful custom 3D rendering
+## Overview
 
-Sol currently ships with examples.
-Build and run an example using:
+**Sol** is an opinionated, cross-platform rendering framework built in Zig, centered around the idea of an **infinite canvas**.
 
-`zig build <example-name>`
+At its core, Sol provides a high-performance 2D canvas designed for large, unbounded spaces (editors, diagrams, worlds, and tools). The canvas is fully extensible: users can add **plugins** that introduce advanced rendering capabilities, including **3D scenes**, **custom shaders**, all embedded directly within the canvas.
 
-To build and run the web version:
+The long-term goal is to offer an **infinite canvas API** that remains simple for 2D use cases, while allowing more advanced users to opt into **orthographic or perspective 3D rendering** within the same coordinate space.
 
-`zig build --release=small -Dtarget=wasm32-emscripten <example-name>`
+---
+
+## Features
+
+### Current
+
+- Infinite 2D canvas
+- Built in rendering pipeline
+- Cross-platform support (desktop and web)
+- 2D shape API for drawing rectangles, circles, lines, etc.
+- Cross-platform fetch API for simple networking requests
+
+### Planned / In Progress
+
+- Scriptable rendering pipeline
+- Serialization
+- Custom shaders and advanced render passes
+- Plugin-based extensibility
+- Optional 3D rendering inside the canvas
+
+---
+
+## Examples
+
+Sol ships with a set of example applications.
+
+Build and run an example:
+
+```sh
+zig build <example-name>
+
+### Example 1: Shapes Demo
+
+A demonstration of Sol's 2D shape API, drawing rectangles, circles, and lines in real-time.
+
+![Shapes Demo](assets/screenshots/shapes_example.png)

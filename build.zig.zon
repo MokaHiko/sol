@@ -19,6 +19,10 @@
             .url = "git+https://codeberg.org/andrewrk/TrueType#7543e2dca70267e8f09e37be00fbc0385138581d",
             .hash = "TrueType-0.0.0-Ne-mWHIGAQBwHsiS9z_vbr1SkVZCkG01Vpzrs079dzIO",
         },
+        .tracy = .{
+            .url = "git+https://github.com/tealsnow/zig-tracy#5bc72385c72e7dbea5e51a8ea21d63205dc9351c",
+            .hash = "tracy-0.0.10-Dn49m2RUAAAdadZoiLef0OCmVdUyeu5GmEzXoTAokcZl",
+        },
     },
     .paths = .{""},
 }

@@ -6,6 +6,8 @@ const Allocator = std.mem.Allocator;
 const sol = @import("sol");
 const sg = sol.gfx_native;
 
+const tracy = sol.tracy;
+
 const gfx = sol.gfx;
 
 const math = @import("sol_math");
@@ -192,6 +194,13 @@ fn drawShape(
 }
 
 pub fn frame(self: *ShapeRenderer) void {
+    const ztx = tracy.beginZone(@src(), .{
+        .name = "Shapes",
+    });
+    defer ztx.end();
+
+    ztx.text("shape count : {d}", .{self.shapes.items.len});
+
     // TODO: Get camera via DI
     const camera_pos = Vec3.new(1, 0, 0);
     const zoom = 0.05;
@@ -235,6 +244,7 @@ pub fn frame(self: *ShapeRenderer) void {
     // ==============================
     // ========== Shape =============
     // ==============================
+
     const shapes = self.shapes.items;
     const tints = self.tints.items;
     const views = self.views.items;
@@ -243,12 +253,19 @@ pub fn frame(self: *ShapeRenderer) void {
         return;
     }
 
-    std.sort.insertion(
-        Shape,
-        shapes,
-        {},
-        sortByTypeAndContext,
-    );
+    {
+        const ztx_sort = tracy.beginZone(@src(), .{
+            .name = "material sort",
+        });
+        defer ztx_sort.end();
+
+        std.sort.pdq(
+            Shape,
+            shapes,
+            {},
+            sortByTypeAndContext,
+        );
+    }
 
     // TODO: Move to shape pipeline or shape pipeline here
     // Resize if missing

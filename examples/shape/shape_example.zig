@@ -11,12 +11,18 @@ const ShapeRenderer = sol_shape.Renderer;
 
 const zstbi = @import("zstbi");
 
+const ShapeVariant = enum(i32) {
+    GreenCircle,
+    GradientSquare,
+    TexturedCircle,
+};
+
 const StreamingShapes = struct {
     gpa: Allocator,
     input: *sol.Input,
     shape_renderer: *ShapeRenderer,
 
-    shape_variants: []i32,
+    shape_variants: []ShapeVariant,
 
     img: gfx.Image = .{},
     view: gfx.ImageView = .{},
@@ -39,9 +45,13 @@ const StreamingShapes = struct {
         });
         const rand = prng.random();
 
-        var shape_types = try gpa.alloc(i32, 5000);
-        for (0..shape_types.len) |i| {
-            shape_types[i] = rand.intRangeAtMost(i32, 0, 2);
+        var shape_variants = try gpa.alloc(ShapeVariant, 10_000);
+        for (0..shape_variants.len) |i| {
+            shape_variants[i] = @enumFromInt(rand.intRangeAtMost(
+                i32,
+                0,
+                @intFromEnum(ShapeVariant.TexturedCircle),
+            ));
         }
 
         return .{
@@ -50,7 +60,7 @@ const StreamingShapes = struct {
             .shape_renderer = shape_renderer,
 
             .fetch_request = fetch_request,
-            .shape_variants = shape_types,
+            .shape_variants = shape_variants,
         };
     }
 
@@ -98,40 +108,38 @@ const StreamingShapes = struct {
         const r: i32 = 1;
 
         var y: i32 = -shalf;
-        while (y < shalf) : (y += r * 2) {
+        while (y < shalf) : (y += 1) {
             var x: i32 = -shalf;
-            while (x < shalf) : (x += r * 2) {
+            while (x < shalf) : (x += 1) {
                 const shape_idx: usize = @intCast((y + shalf) * s + (x + shalf));
-                const shape_type: i32 = self.shape_variants[shape_idx];
 
-                const ns: f32 = @floatFromInt(s * 2);
-                const nx: f32 = @floatFromInt(x + s);
-                const ny: f32 = @floatFromInt(y + s);
-
-                if (shape_type == 0) {
-                    shape.drawCircle(x, y, 1, .{
-                        .tint = gfx.color.RGBA.new(
-                            nx / ns,
-                            ny / ns,
-                            0.0,
-                            1.0,
-                        ).asU32(),
-                    });
-                } else if (shape_type == 1) {
-                    if (self.img.isValid()) {
-                        shape.drawCircle(x, y, 1, .{
-                            .image_view = self.view,
+                switch (self.shape_variants[shape_idx]) {
+                    .GreenCircle => {
+                        shape.drawCircle(x * r * 2, y * r * 2, 1, .{
+                            .tint = gfx.color.RGBA.green.asU32(),
                         });
-                    }
-                } else if (shape_type == 2) {
-                    shape.drawRect(x, y, 1, 1, .{
-                        .tint = gfx.color.RGBA.new(
-                            nx / ns,
-                            ny / ns,
-                            0.0,
-                            1.0,
-                        ).asU32(),
-                    });
+                    },
+                    .GradientSquare => {
+                        const ns: f32 = @floatFromInt(s * 2);
+                        const nx: f32 = @floatFromInt(x + s);
+                        const ny: f32 = @floatFromInt(y + s);
+
+                        shape.drawRect(x * r * 2, y * r * 2, r, r, .{
+                            .tint = gfx.color.RGBA.new(
+                                nx / ns,
+                                ny / ns,
+                                0.0,
+                                1.0,
+                            ).asU32(),
+                        });
+                    },
+                    .TexturedCircle => {
+                        if (self.img.isValid()) {
+                            shape.drawCircle(x * r * 2, y * r * 2, 1, .{
+                                .image_view = self.view,
+                            });
+                        }
+                    },
                 }
             }
         }
