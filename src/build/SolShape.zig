@@ -8,10 +8,17 @@ const Config = @import("Config.zig");
 const Sol = @import("Sol.zig");
 const SolMath = @import("SolMath.zig");
 const ShaderBuilder = @import("ShaderBuilder.zig");
+const Tracy = @import("Tracy.zig");
 
 module: *Build.Module,
 
-pub fn init(b: *std.Build, config: Config, sol: Sol, sol_math: SolMath, shader_builder: ShaderBuilder) !SolShape {
+pub fn init(
+    b: *std.Build,
+    config: Config,
+    sol: Sol,
+    sol_math: SolMath,
+    shader_builder: ShaderBuilder,
+) !SolShape {
     const shape_shaders = try shader_builder.createModule("assets/shaders/shape_shaders.glsl");
 
     const mod = b.addModule("sol_shape", .{

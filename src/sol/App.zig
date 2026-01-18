@@ -15,6 +15,8 @@ const simgui = sokol.imgui;
 const sol = @import("sol.zig");
 const Module = @import("Module.zig");
 
+const tracy = sol.tracy;
+
 const Event = @import("event/Event.zig");
 const EventQueue = @import("event/EventQueue.zig");
 
@@ -33,7 +35,7 @@ modules: []Module,
 event_queue: EventQueue,
 
 module_deps: [][]usize,
-module_names: [][]const u8,
+module_names: [][:0]const u8,
 
 // TODO: Move to built in renderer plugin
 pass_action: sol.gfx_native.PassAction = .{},
@@ -89,7 +91,7 @@ pub fn create(allocator: Allocator, requested_modules: []const ModuleDesc, opts:
 
     // Resolve dependencies at comptime
     var mods = try allocator.alloc(Module, mod_descs.len);
-    var mod_names = try allocator.alloc([]const u8, mod_descs.len);
+    var mod_names = try allocator.alloc([:0]const u8, mod_descs.len);
     var mod_deps = try allocator.alloc([]usize, mod_descs.len);
 
     inline for (mod_descs, 0..) |mod, mod_idx| {
@@ -175,6 +177,12 @@ pub fn run(self: *App) !void {
 }
 
 fn initWError() !void {
+    const init_zctx = tracy.beginZone(@src(), .{});
+    defer {
+        init_zctx.end();
+        tracy.frameMark();
+    }
+
     const self: *App = @ptrCast(@alignCast(sapp.userdata().?));
 
     // Allocate and initialize modules
@@ -228,6 +236,13 @@ export fn initCallback() void {
 }
 
 export fn frameCallback() void {
+    // Set up profiling
+    const frame_zctx = tracy.beginZone(@src(), .{ .name = "Main" });
+    defer {
+        frame_zctx.end();
+        tracy.frameMark();
+    }
+
     const self: *App = @ptrCast(@alignCast(sapp.userdata().?));
 
     // call simgui.newFrame() before any ImGui calls
@@ -278,6 +293,7 @@ export fn frameCallback() void {
 
     simgui.render();
     sol.gfx_native.endPass();
+
     sol.gfx_native.commit();
 
     self.event_queue.flush();

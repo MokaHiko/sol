@@ -7,6 +7,7 @@ const sokol = @import("sokol");
 const cimgui = @import("cimgui");
 
 const Config = @import("src/build/Config.zig");
+const Tracy = @import("src/build/Tracy.zig");
 
 const Sol = @import("src/build/Sol.zig");
 const SolMath = @import("src/build/SolMath.zig");
@@ -27,12 +28,10 @@ pub fn build(b: *Build) !void {
         .optimize = optimize,
     };
 
-    // Core
-    const sol = try Sol.init(b, config);
-    const sol_math = try SolMath.init(b, config);
+    const sol: Sol = try .init(b, config, try .init(b, config));
+    const sol_math: SolMath = try .init(b, config);
 
-    // Extra
-    const sol_text = try SolText.init(
+    const sol_text: SolText = try .init(
         b,
         config,
         sol,
@@ -40,7 +39,7 @@ pub fn build(b: *Build) !void {
         sol.shader_builder,
     );
 
-    const sol_shape = try SolShape.init(
+    const sol_shape: SolShape = try .init(
         b,
         config,
         sol,
@@ -48,7 +47,7 @@ pub fn build(b: *Build) !void {
         sol.shader_builder,
     );
 
-    const sol_fetch = try SolFetch.init(
+    const sol_fetch: SolFetch = try .init(
         b,
         config,
         sol,
@@ -56,7 +55,7 @@ pub fn build(b: *Build) !void {
 
     if (opt_examples) {
         const TextExample = @import("src/build/SolTextExample.zig");
-        const text_example = try TextExample.init(
+        const text_example: TextExample = try .init(
             b,
             config,
             sol,
@@ -65,7 +64,7 @@ pub fn build(b: *Build) !void {
         );
 
         const ShapeExample = @import("src/build/SolShapeExample.zig");
-        const shape_example = try ShapeExample.init(
+        const shape_example: ShapeExample = try .init(
             b,
             config,
             sol,
