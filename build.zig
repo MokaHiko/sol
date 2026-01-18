@@ -13,6 +13,7 @@ const Sol = @import("src/build/Sol.zig");
 const SolMath = @import("src/build/SolMath.zig");
 const ShaderBuilder = @import("src/build/ShaderBuilder.zig");
 
+const SolCamera = @import("src/build/SolCamera.zig");
 const SolShape = @import("src/build/SolShape.zig");
 const SolText = @import("src/build/SolText.zig");
 const SolFetch = @import("src/build/SolFetch.zig");
@@ -31,7 +32,15 @@ pub fn build(b: *Build) !void {
     const sol: Sol = try .init(b, config, try .init(b, config));
     const sol_math: SolMath = try .init(b, config);
 
-    const sol_text: SolText = try .init(
+    // Extra
+    const sol_camera = try SolCamera.init(
+        b,
+        config,
+        sol,
+        sol_math,
+    );
+
+    const sol_text = try SolText.init(
         b,
         config,
         sol,
@@ -44,6 +53,7 @@ pub fn build(b: *Build) !void {
         config,
         sol,
         sol_math,
+        sol_camera,
         sol.shader_builder,
     );
 
@@ -69,6 +79,7 @@ pub fn build(b: *Build) !void {
             config,
             sol,
             sol_math,
+            sol_camera,
             sol_shape,
             sol_fetch,
         );

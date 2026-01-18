@@ -56,17 +56,25 @@ pub fn setOrthogonal(self: *Camera3D, size: f32, z_near: f32, z_far: f32) void {
 
     const window_width: f32 = @floatFromInt(sol.windowWidth());
     const window_height: f32 = @floatFromInt(sol.windowHeight());
+    const aspect_ratio: f32 = window_height / window_width;
+
+    const width = 10.0 / size;
+    const height = width * aspect_ratio;
+
+    const half_width: f32 = width / 2.0;
+    const half_height: f32 = height / 2.0;
+
     self._proj = Mat4.ortho_rh(
-        0,
-        window_width * size,
-        0,
-        window_height * size,
+        -half_width,
+        half_width,
+        -half_height,
+        half_height,
         z_near,
         z_far,
     );
 }
 
-pub fn frame(self: *Camera3D) void {
+pub fn calcView(self: *Camera3D) void {
     self._view = Mat4.translate(Vec3.new(
         -self.position._v[0],
         -self.position._v[1],

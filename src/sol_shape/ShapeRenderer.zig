@@ -4,6 +4,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 
 const sol = @import("sol");
+const sol_camera = @import("sol_camera");
 const sg = sol.gfx_native;
 
 const tracy = sol.tracy;
@@ -68,6 +69,8 @@ pub const DrawOptions = struct {
 };
 
 // Common
+main_camera: *sol_camera.MainCamera,
+
 linear_sampler: sg.Sampler,
 white_image: gfx.Image,
 white_image_view: gfx.ImageView,
@@ -81,7 +84,7 @@ views: std.ArrayList(gfx.ImageView),
 tints: std.ArrayList(u32),
 allocator: Allocator,
 
-pub fn init(allocator: Allocator) !ShapeRenderer {
+pub fn init(allocator: Allocator, main_camera: *sol_camera.MainCamera) !ShapeRenderer {
     // Init common resources.
     const linear_sampler = sg.makeSampler(.{
         .min_filter = .LINEAR,
@@ -98,6 +101,8 @@ pub fn init(allocator: Allocator) !ShapeRenderer {
     const shape_pipeline = try ShapePipeline.init(white_image_view, linear_sampler);
 
     return .{
+        .main_camera = main_camera,
+
         .linear_sampler = linear_sampler,
         .white_image = white_image,
         .white_image_view = white_image_view,
@@ -201,28 +206,12 @@ pub fn frame(self: *ShapeRenderer) void {
 
     ztx.text("shape count : {d}", .{self.shapes.items.len});
 
-    // TODO: Get camera via DI
-    const camera_pos = Vec3.new(1, 0, 0);
-    const zoom = 0.05;
-
-    const window_width: f32 = @floatFromInt(sol.windowWidth());
-    const window_height: f32 = @floatFromInt(sol.windowHeight());
-    const aspect_ratio: f32 = window_height / window_width;
-
-    const width = 10.0 / zoom;
-    const height = width * aspect_ratio;
-
-    const half_width: f32 = width / 2.0;
-    const half_height: f32 = height / 2.0;
-
-    const view = Mat4.translate(camera_pos.scale(-1.0));
-    var proj = Mat4.ortho_rh(-half_width, half_width, -half_height, half_height, 0.01, 1);
-    const view_proj = proj.mul(view);
+    const camera = self.main_camera.camera();
 
     // ==============================
     // ========== Grid ==============
     // ==============================
-    const inv_view_proj = view_proj.inverse() catch unreachable;
+    const inv_view_proj = camera.viewProj().inverse() catch unreachable;
     sg.applyPipeline(self.grid_pipeline.pip);
     var props = shaders.GridProps{
         .inv_view_proj = undefined,
@@ -307,7 +296,7 @@ pub fn frame(self: *ShapeRenderer) void {
         const py: f32 = @floatFromInt(0);
         const translate = Mat4.translate(Vec3.new(px, py, 0));
 
-        const mvp = view_proj.mul(translate);
+        const mvp = camera.viewProj().mul(translate);
         sg.applyUniforms(shaders.UB_canvas_props, sg.asRange(&mvp));
 
         switch (ltype) {
@@ -345,7 +334,7 @@ pub fn frame(self: *ShapeRenderer) void {
     const py: f32 = @floatFromInt(0);
     const translate = Mat4.translate(Vec3.new(px, py, 0));
 
-    const mvp = view_proj.mul(translate);
+    const mvp = camera.viewProj().mul(translate);
     sg.applyUniforms(shaders.UB_canvas_props, sg.asRange(&mvp));
 
     switch (ltype) {
