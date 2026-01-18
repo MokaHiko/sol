@@ -74,7 +74,7 @@ pub fn setOrthogonal(self: *Camera3D, size: f32, z_near: f32, z_far: f32) void {
     );
 }
 
-pub fn frame(self: *Camera3D) void {
+pub fn calcView(self: *Camera3D) void {
     self._view = Mat4.translate(Vec3.new(
         -self.position._v[0],
         -self.position._v[1],

@@ -52,7 +52,7 @@ const StreamingShapes = struct {
         });
         const rand = prng.random();
 
-        var shape_variants = try gpa.alloc(ShapeVariant, 10_000);
+        var shape_variants = try gpa.alloc(ShapeVariant, 3_000);
         for (0..shape_variants.len) |i| {
             shape_variants[i] = @enumFromInt(rand.intRangeAtMost(
                 i32,
@@ -74,23 +74,38 @@ const StreamingShapes = struct {
 
     pub fn frame(self: *StreamingShapes) void {
         const input = self.input;
-        const main_cam = self.main_camera;
+        const camera = self.main_camera.camera();
+        const shape = self.shape_renderer;
 
-        if (input.isKeyDown(.LEFT_SUPER) and input.isKeyDown(.EQUAL)) {
+        if (input.isKeyDown(.LEFT_CONTROL) and input.isKeyDown(.EQUAL)) {
             self.zoom += 0.01;
-            main_cam.*.camera.setOrthogonal(self.zoom, 0.1, 1.0);
+            camera.setOrthogonal(self.zoom, 0.1, 1.0);
         }
 
-        if (input.isKeyDown(.LEFT_SUPER) and input.isKeyDown(.MINUS)) {
+        if (input.isKeyDown(.LEFT_CONTROL) and input.isKeyDown(.MINUS)) {
             self.zoom -= 0.01;
             if (self.zoom <= 0.0) {
                 self.zoom = 0.01;
             }
 
-            main_cam.*.camera.setOrthogonal(self.zoom, 0.1, 1.0);
+            camera.setOrthogonal(self.zoom, 0.1, 1.0);
         }
 
-        const shape = self.shape_renderer;
+        if (input.isKeyDown(.UP)) {
+            camera.position = camera.position.add(.new(0.0, 0.1, 0));
+        }
+
+        if (input.isKeyDown(.DOWN)) {
+            camera.position = camera.position.sub(.new(0.0, 0.1, 0));
+        }
+
+        if (input.isKeyDown(.RIGHT)) {
+            camera.position = camera.position.add(.new(0.1, 0, 0));
+        }
+
+        if (input.isKeyDown(.LEFT)) {
+            camera.position = camera.position.sub(.new(0.1, 0, 0));
+        }
 
         // Check if request is valid and finished.
         if (self.fetch_request) |req| {

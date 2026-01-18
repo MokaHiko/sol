@@ -206,25 +206,7 @@ pub fn frame(self: *ShapeRenderer) void {
 
     ztx.text("shape count : {d}", .{self.shapes.items.len});
 
-    // TODO: Get camera via DI
-    const camera = self.main_camera.*.camera;
-
-    // const camera_pos = Vec3.new(1, 0, 0);
-    // const zoom = 0.05;
-    //
-    // const window_width: f32 = @floatFromInt(sol.windowWidth());
-    // const window_height: f32 = @floatFromInt(sol.windowHeight());
-    // const aspect_ratio: f32 = window_height / window_width;
-    //
-    // const width = 10.0 / zoom;
-    // const height = width * aspect_ratio;
-    //
-    // const half_width: f32 = width / 2.0;
-    // const half_height: f32 = height / 2.0;
-    //
-    // const view = Mat4.translate(camera_pos.scale(-1.0));
-    // var proj = Mat4.ortho_rh(-half_width, half_width, -half_height, half_height, 0.01, 1);
-    // const view_proj = proj.mul(view);
+    const camera = self.main_camera.camera();
 
     // ==============================
     // ========== Grid ==============
