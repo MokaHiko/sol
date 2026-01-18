@@ -10,9 +10,9 @@
 
 **Sol** is an opinionated, cross-platform rendering framework built in Zig, centered around the idea of an **infinite canvas**.
 
-At its core, Sol provides a high-performance 2D canvas designed for large, unbounded spaces (editors, diagrams, worlds, and tools). The canvas is fully extensible: users can add **plugins** that introduce advanced rendering capabilities, including **3D scenes**, **custom shaders**, all embedded directly within the canvas.
+At its core, Sol provides a high-performance 2D canvas designed for large, unbounded spaces (editors, diagrams, worlds, and tools). The canvas is fully extensible: users can add **plugins** that introduce advanced rendering capabilities, including 3D scenes, custom shaders, all embedded directly within the canvas.
 
-The long-term goal is to offer an **infinite canvas API** that remains simple for 2D use cases, while allowing more advanced users to opt into **orthographic or perspective 3D rendering** within the same coordinate space.
+The long-term goal is to offer an infinite canvas API that remains simple for 2D use cases, while allowing more advanced users to opt into orthographic or perspective 3D rendering within the same coordinate space.
 
 ---
 
@@ -43,10 +43,14 @@ Sol ships with a set of example applications.
 Build and run an example:
 
 ```sh
-zig build <example-name>
+zig build <example-name> # desktop
+# or
+zig build --release=small -Dtarget=wasm32-emscripten <example-name> # web
+```
 
-### Example 1: Shapes Demo
+### Example 1: Shapes
 
-A demonstration of Sol's 2D shape API, drawing rectangles, circles, and lines in real-time.
+A demonstration of Sol's immediate-mode 2D shape API, drawing rectangles and circles.  
+This example also uses Sol's cross-platform fetch API to load a texture asynchronously, which is drawn once it finishes loading.
 
 ![Shapes Demo](assets/screenshots/shapes_example.png)
