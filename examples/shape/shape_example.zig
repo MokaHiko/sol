@@ -197,6 +197,10 @@ const StreamingShapes = struct {
     }
 };
 
+pub export fn sol_hello() void {
+    sol.log.err("Hello from sol using js?", .{});
+}
+
 pub fn main() !void {
     var app = try sol.App.create(
         sol.allocator,

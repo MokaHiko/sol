@@ -84,9 +84,20 @@ pub fn build(b: *Build) !void {
             sol_fetch,
         );
 
+        const GltfViewer = @import("src/build/GltfViewer.zig");
+        const gltf_viewer: GltfViewer = try .init(
+            b,
+            config,
+            sol,
+            sol_math,
+            sol_camera,
+            sol.shader_builder,
+        );
+
         const examples_modules = [_]struct { name: []const u8, mod: *Build.Module }{
             .{ .name = "ex_text", .mod = text_example.module },
             .{ .name = "ex_shape", .mod = shape_example.module },
+            .{ .name = "gltf_viewer", .mod = gltf_viewer.module },
         };
 
         for (examples_modules) |ex| {
@@ -134,7 +145,7 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions, name: []const u8) !void {
         .use_webgl2 = true,
         .use_emmalloc = true,
         .shell_file_path = opts.sol.shell_file_path,
-        .extra_args = &[_][]const u8{ "-sALLOW_MEMORY_GROWTH", "-sFETCH=1" },
+        .extra_args = &[_][]const u8{ "-sALLOW_MEMORY_GROWTH", "-sFETCH=1", "-sEXPORTED_FUNCTIONS=_sol_hello" },
     });
 
     // attach to default target
