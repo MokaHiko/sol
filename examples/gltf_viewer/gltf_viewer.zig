@@ -5,6 +5,10 @@ const sol = @import("sol");
 const gfx = sol.gfx;
 
 const math = @import("sol_math");
+const Vec3 = math.Vec3;
+const Mat4 = math.Mat4;
+const Rotation = math.Rotation;
+
 const sol_fetch = @import("sol_fetch");
 
 const sol_camera = @import("sol_camera");
@@ -15,6 +19,7 @@ const zstbi = @import("zstbi");
 // TODO: Move to gfx
 const sg = sol.gfx_native;
 
+// TODO: This is really a mesh primitive
 const Mesh = struct {
     vbo: sg.Buffer = .{},
     nvertices: usize = 0,
@@ -80,99 +85,77 @@ pub fn IMesh(comptime VertexT: type) type {
 }
 
 // TODO: One more abstraction back from shader
-// pub const shader  = struct {desc : sg.ShaderDesc};
-//
-// _start_canary: u32 = 0,
-// vertex_func: ShaderFunction = .{},
-// fragment_func: ShaderFunction = .{},
-// compute_func: ShaderFunction = .{},
-// attrs: [16]ShaderVertexAttr = [_]ShaderVertexAttr{.{}} ** 16,
-// uniform_blocks: [8]ShaderUniformBlock = [_]ShaderUniformBlock{.{}} ** 8,
-// views: [28]ShaderView = [_]ShaderView{.{}} ** 28,
-// samplers: [16]ShaderSampler = [_]ShaderSampler{.{}} ** 16,
-// texture_sampler_pairs: [16]ShaderTextureSamplerPair = [_]ShaderTextureSamplerPair{.{}} ** 16,
-// mtl_threads_per_threadgroup: MtlShaderThreadsPerThreadgroup = .{},
-// label: [*c]const u8 = null,
-// _end_canary: u32 = 0,
 
-pub const Pipeline = struct {
-    handle: sg.Pipeline = .{},
+pub const ShadowPass = struct {};
 
-    pub fn deinit(self: *Pipeline) void {
-        sg.destroyPipeline(self.handle);
+pub const GBufferPass = struct {
+    pip: sg.Pipeline = .{},
+
+    pub fn init() !GBufferPass {
+        const pip = sg.makePipeline(.{
+            .shader = sg.makeShader(shd.pbrShaderDesc(sg.queryBackend())),
+            .index_type = .UINT32,
+            .layout = init: {
+                var l = sg.VertexLayoutState{};
+                l.attrs[shd.ATTR_pbr_position].format = .FLOAT3;
+                l.attrs[shd.ATTR_pbr_color].format = .FLOAT4;
+                break :init l;
+            },
+            .depth = .{
+                .compare = .LESS_EQUAL,
+                .write_enabled = true,
+            },
+            .cull_mode = .BACK,
+        });
+
+        return .{ .pip = pip };
+    }
+
+    pub fn deinit(self: *GBufferPass) void {
+        sg.destroyPipeline(self.pip);
     }
 };
 
-// TODO: JUST GET THE FIXED PIPELINES WORKING FIRST PROPERLY BEFORE ABSTRACTING IT YOU DUMBASS!
-pub const PBRPipeline = struct {
-    pip: Pipeline = .{},
+pub const LightingPass = struct {};
 
-    pub const TextureType = enum(i32) {
+pub const TransparencyPass = struct {};
+
+pub const PBR = struct {
+    main_camera: *MainCamera,
+    gpass: GBufferPass,
+
+    pub const Textures = enum(i32) {
         Albedo = 0,
+        Normal,
+        Emissive,
     };
 
-    pub fn init() !PBRPipeline {
-        // TODO: std.StaticStringMap(comptime V: type)
-        // const sd = shaders.pbrShaderDesc(sg.queryBackend());
-        // for (sd.uniform_blocks, 0..) |ub, ubidx| {
-        //     if (ub.stage == .NONE) break;
-        //     std.log.debug("ub: {d}, size : {d}", .{ ubidx, ub.size });
-        //     for (ub.glsl_uniforms) |u| {
-        //         if (u.type == .INVALID) break;
-        //         std.log.debug(" - {s}", .{u.glsl_name});
-        //     }
-        // }
-
-        if (true) return error.Fuck;
-
-        const pip = sg.makePipeline(.{
-            .shader = sg.makeShader(shaders.pbrShaderDesc(sg.queryBackend())),
-        });
-
+    // TODO: Get scene graph/draw list, and render target
+    pub fn init(
+        main_camera: *MainCamera,
+        gpass: GBufferPass,
+    ) !PBR {
         return .{
-            .pip = .{ .handle = pip },
+            .main_camera = main_camera,
+            .gpass = gpass,
         };
     }
 
-    pub fn pipeline(self: PBRPipeline) Pipeline {
-        return self.pip;
-    }
+    // TODO: Remove immediate mode drawing
+    var time: f32 = 0;
+    pub fn draw(self: *PBR, mesh: Mesh, mat: Material) void {
+        const camera = self.main_camera.camera();
 
-    pub fn deinit(self: *Pipeline) void {
-        self.pip.deinit();
-    }
-};
+        sg.applyPipeline(self.gpass.pip);
 
-const Texture = struct {
-    view: sg.View = .{},
-    sampler: sg.Sampler = .{},
-};
+        const translate = Mat4.translate(Vec3.new(0, 0, -10));
 
-// TODO: maybe force enum on each texture?
-pub const Material = struct {
-    pub const Limits = struct {
-        const max_textures: u8 = 16;
-    };
+        time += @floatCast(sol.deltaTime());
+        const r: f32 = std.math.degreesToRadians(@sin(time) * 180);
+        const rotate = Rotation.new(r, r, r).toMat4();
 
-    // TODO: textures each pipeline
-    textures: [@intCast(Limits.max_textures)]Texture,
-    ntextures: u8 = 0,
-
-    // TODO: Multiple pipelines
-    pip: Pipeline = .{},
-
-    pub fn init(pip: Pipeline) !Material {
-        var textures: [@intCast(Limits.max_textures)]Texture = undefined;
-        @memset(textures[0..], .{});
-
-        return .{ .textures = textures, .pip = pip };
-    }
-};
-
-const MeshRenderer = struct {
-    // render_target : RenderTarget
-    pub fn draw(self: *MeshRenderer, mesh: Mesh, mat: Material) void {
-        _ = self;
+        const mvp = camera.viewProj().mul(translate.mul(rotate));
+        sg.applyUniforms(shd.UB_scene_matrices, sg.asRange(&mvp));
 
         var bindings: sg.Bindings = .{};
 
@@ -182,19 +165,57 @@ const MeshRenderer = struct {
 
         bindings.vertex_buffers[0] = mesh.vbo;
         bindings.index_buffer = mesh.ibo orelse .{};
-
-        sg.applyPipeline(mat.pip.handle);
         sg.applyBindings(bindings);
 
         if (mesh.ibo) |_| {
-            sg.draw(0, @intCast(mesh.nvertices), 1);
-        } else {
             sg.draw(0, @intCast(mesh.nindices), 1);
+        } else {
+            sg.draw(0, @intCast(mesh.nvertices), 1);
         }
+    }
+
+    pub fn frame(self: *PBR) void {
+        _ = self;
+    }
+
+    pub fn deinit(self: *PBR) void {
+        _ = self;
     }
 };
 
-const shaders = @import("pbr_shaders");
+const Texture = struct {
+    view: sg.View = .{},
+    sampler: sg.Sampler = .{},
+};
+
+pub const Material = struct {
+    pub const Limits = struct {
+        const max_textures: usize = 16;
+        const max_uniforms: usize = 8;
+    };
+
+    textures: [Limits.max_textures]Texture,
+    ntextures: u8 = 0,
+
+    // TODO: Maybe moved to implementation,
+    // because a lot of the time it's common tot the entire pass
+    //
+    // uniform: []u8,
+    // nubos: u8 = 0,
+
+    pub fn init() !Material {
+        var textures: [Limits.max_textures]Texture = undefined;
+        @memset(textures[0..], .{});
+
+        return .{ .textures = textures };
+    }
+    pub fn deinit(self: *Material) void {
+        @memset(self.textures[0..], .{});
+        self.ntextures = 0;
+    }
+};
+
+const shd = @import("pbr_shaders");
 
 pub const PCF32 = struct {
     struct { f32, f32, f32 },
@@ -205,18 +226,16 @@ const GltfViewer = struct {
     gpa: Allocator,
     input: *sol.Input,
     main_camera: *MainCamera,
-
-    mesh_renderer: *MeshRenderer,
+    pbr: *PBR,
 
     cube_mesh: IMesh(PCF32),
-    pbr_mat: Material,
-    pbr_pip: PBRPipeline,
+    red_mat: Material,
 
     pub fn init(
         gpa: Allocator,
         input: *sol.Input,
         main_camera: *MainCamera,
-        mesh_renderer: *MeshRenderer,
+        pbr: *PBR,
     ) !GltfViewer {
         const vertices = [_]PCF32{
             .{ .{ -1.0, -1.0, -1.0 }, .{ 1.0, 0.0, 0.0, 1.0 } },
@@ -250,28 +269,28 @@ const GltfViewer = struct {
             .{ .{ 1.0, 1.0, -1.0 }, .{ 1.0, 0.0, 0.5, 1.0 } },
         };
 
-        const indices = [_]u32{ 0, 1, 2, 0, 2, 3, 6, 5, 4, 7, 6, 4, 8, 9, 10, 8, 10, 11, 14, 13, 12, 15, 14, 12, 16, 17, 18, 16, 18, 19, 22, 21, 20, 23, 22, 20 };
-
-        // TODO: Probably DI inject this
-        const pbr: PBRPipeline = try .init();
+        const indices = [_]u32{
+            0,  1,  2,  0,  2,  3,
+            6,  5,  4,  7,  6,  4,
+            8,  9,  10, 8,  10, 11,
+            14, 13, 12, 15, 14, 12,
+            16, 17, 18, 16, 18, 19,
+            22, 21, 20, 23, 22, 20,
+        };
 
         return .{
             .gpa = gpa,
             .input = input,
             .main_camera = main_camera,
-            .mesh_renderer = mesh_renderer,
+            .pbr = pbr,
 
             .cube_mesh = try .init(&vertices, &indices),
-            .pbr_pip = pbr,
-            .pbr_mat = try .init(pbr.pipeline()),
+            .red_mat = try .init(),
         };
     }
 
     pub fn frame(self: *GltfViewer) void {
-        self.mesh_renderer.draw(
-            self.cube_mesh.mesh(),
-            self.pbr_mat,
-        );
+        self.pbr.draw(self.cube_mesh.mesh(), self.red_mat);
     }
 
     pub fn deinit(self: *GltfViewer) void {
@@ -279,21 +298,22 @@ const GltfViewer = struct {
     }
 };
 
-// TODO: DI Inject a PBR Renderer
-// PBR Renderer, Sprite Renderer, Text renderer will be an example of the flexible render Pipeline
-// i.e ubiquitous defaults
 pub fn main() !void {
     var app = try sol.App.create(
         sol.allocator,
         &[_]sol.App.ModuleDesc{
             sol_camera.module,
-            .{ .T = MeshRenderer, .opts = .{} },
+            // .{ .T = Text, .opts = .{} },
+            // .{ .T = Sprite, .opts = .{} },
+            // .{ .T = Scene, .opts = .{} },
+            .{ .T = GBufferPass, .opts = .{} },
+            .{ .T = PBR, .opts = .{} },
             .{ .T = GltfViewer, .opts = .{} },
         },
         .{
             .name = "GltfViewer",
-            .width = 1920,
-            .height = 1080,
+            .width = 720,
+            .height = 480,
         },
     );
 

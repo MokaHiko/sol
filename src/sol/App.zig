@@ -216,7 +216,12 @@ fn initWError() !void {
     // Initial clear color.
     self.pass_action.colors[0] = .{
         .load_action = .CLEAR,
-        .clear_value = .{ .r = 242.0 / 255.0, .g = 242.0 / 255.0, .b = 242.0 / 255.0, .a = 255.0 },
+        .clear_value = .{
+            .r = 242.0 / 255.0,
+            .g = 242.0 / 255.0,
+            .b = 242.0 / 255.0,
+            .a = 1.0,
+        },
     };
 
     sol.log.trace("Gfx: {s}", .{@tagName(sol.gfx_native.queryBackend())});

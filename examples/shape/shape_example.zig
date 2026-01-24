@@ -109,37 +109,33 @@ const StreamingShapes = struct {
 
         // Check if request is valid and finished.
         if (self.fetch_request) |req| {
-            if (req.isFinished()) {
-                if (req.isSuccess()) {
-                    zstbi.init(sol.allocator);
-                    zstbi.setFlipVerticallyOnLoad(true);
-                    defer zstbi.deinit();
+            if (req.isSuccess()) {
+                zstbi.init(sol.allocator);
+                zstbi.setFlipVerticallyOnLoad(true);
+                defer zstbi.deinit();
 
-                    var raw = zstbi.Image.loadFromMemory(
-                        req.getData() orelse @panic("Fetch payload was empty!"),
-                        4,
-                    ) catch @panic("Failed to load image data!");
-                    defer raw.deinit();
+                var raw = zstbi.Image.loadFromMemory(
+                    req.getData() orelse @panic("Fetch payload was empty!"),
+                    4,
+                ) catch @panic("Failed to load image data!");
+                defer raw.deinit();
 
-                    self.img = gfx.Image.init(
-                        raw.data,
-                        @intCast(raw.width),
-                        @intCast(raw.height),
-                        .RGBA8,
-                        .{},
-                    ) catch @panic("Failed to initialize image!");
+                self.img = gfx.Image.init(
+                    raw.data,
+                    @intCast(raw.width),
+                    @intCast(raw.height),
+                    .RGBA8,
+                    .{},
+                ) catch @panic("Failed to initialize image!");
 
-                    self.view = gfx.ImageView.init(
-                        self.img,
-                        .{},
-                    ) catch @panic("Failed to initialize image view");
+                self.view = gfx.ImageView.init(
+                    self.img,
+                    .{},
+                ) catch @panic("Failed to initialize image view");
 
-                    // Invalidate request.
-                    req.deinit(sol.allocator);
-                    self.fetch_request = null;
-                } else {
-                    sol.log.err("Failed to get load image!", .{});
-                }
+                // Invalidate request.
+                req.deinit(sol.allocator);
+                self.fetch_request = null;
             }
         }
 

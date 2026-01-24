@@ -145,7 +145,7 @@ fn buildWasm(b: *Build, opts: BuildWasmOptions, name: []const u8) !void {
         .use_webgl2 = true,
         .use_emmalloc = true,
         .shell_file_path = opts.sol.shell_file_path,
-        .extra_args = &[_][]const u8{ "-sALLOW_MEMORY_GROWTH", "-sFETCH=1", "-sEXPORTED_FUNCTIONS=_sol_hello" },
+        .extra_args = &[_][]const u8{ "-sALLOW_MEMORY_GROWTH", "-sFETCH=1" },
     });
 
     // attach to default target

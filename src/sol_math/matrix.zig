@@ -11,45 +11,47 @@ pub const Mat4 = struct {
 
     /// Returns the identity matrix.
     pub const identity: Mat4 = .{ ._m = .{
-        @Vector(4, f32){ 1, 0, 0, 0 },
-        @Vector(4, f32){ 0, 1, 0, 0 },
-        @Vector(4, f32){ 0, 0, 1, 0 },
-        @Vector(4, f32){ 0, 0, 0, 1 },
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 0, 0, 0, 1 },
     } };
 
     /// Returns a matrix filled with only zeros.
     pub const zero: Mat4 = .{ ._m = .{
-        @Vector(4, f32){ 0, 0, 0, 0 },
-        @Vector(4, f32){ 0, 0, 0, 0 },
-        @Vector(4, f32){ 0, 0, 0, 0 },
-        @Vector(4, f32){ 0, 0, 0, 0 },
+        .{ 0, 0, 0, 0 },
+        .{ 0, 0, 0, 0 },
+        .{ 0, 0, 0, 0 },
+        .{ 0, 0, 0, 0 },
     } };
 
     pub fn translate(p: Vec3) Mat4 {
         return .{ ._m = [4]@Vector(4, f32){
-            @Vector(4, f32){ 1, 0, 0, 0 },
-            @Vector(4, f32){ 0, 1, 0, 0 },
-            @Vector(4, f32){ 0, 0, 1, 0 },
-            @Vector(4, f32){ p._v[0], p._v[1], p._v[2], 1 },
+            .{ 1, 0, 0, 0 },
+            .{ 0, 1, 0, 0 },
+            .{ 0, 0, 1, 0 },
+            .{ p._v[0], p._v[1], p._v[2], 1 },
         } };
     }
 
     pub fn scale(s: Vec3) Mat4 {
         return .{ ._m = [4]@Vector(4, f32){
-            @Vector(4, f32){ s._v[0], 0, 0, 0 },
-            @Vector(4, f32){ 0, s._v[1], 0, 0 },
-            @Vector(4, f32){ 0, 0, s._v[2], 0 },
-            @Vector(4, f32){ 0, 0, 0, 1 },
+            .{ s._v[0], 0, 0, 0 },
+            .{ 0, s._v[1], 0, 0 },
+            .{ 0, 0, s._v[2], 0 },
+            .{ 0, 0, 0, 1 },
         } };
     }
 
     pub fn ortho_rh(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) Mat4 {
-        return .{ ._m = [4]@Vector(4, f32){
-            @Vector(4, f32){ 2 / (r - l), 0, 0, 0 },
-            @Vector(4, f32){ 0, 2 / (t - b), 0, 0 },
-            @Vector(4, f32){ 0, 0, 1 / (f - n), 0 },
-            @Vector(4, f32){ (l + r) / (l - r), (b + t) / (b - t), n / (n - f), 1 },
-        } };
+        return .{
+            ._m = [4]@Vector(4, f32){
+                .{ 2 / (r - l), 0, 0, 0 },
+                .{ 0, 2 / (t - b), 0, 0 },
+                .{ 0, 0, 1 / (f - n), 0 },
+                .{ (l + r) / (l - r), (b + t) / (b - t), n / (n - f), 1 },
+            },
+        };
     }
 
     /// Multiplies this matrix (`self`) by another matrix (`right`) and returns the result.
