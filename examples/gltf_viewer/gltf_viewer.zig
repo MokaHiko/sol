@@ -16,6 +16,72 @@ const MainCamera = sol_camera.MainCamera;
 
 const zstbi = @import("zstbi");
 
+// TODO: Move to GLTFLoader
+
+const Gltf = @import("Gltf.zig");
+
+const Error = error{
+    NoRootScene,
+    EmptyScenes,
+    EmptyNodes,
+    EmptyMeshes,
+    EmptyBuffers,
+    EmptyBufferViews,
+    EmptyAccessors,
+    FailedToParse,
+};
+
+pub fn LoadGltf(gpa: Allocator) !void {
+    const gltf_json = try std.json.parseFromSlice(
+        Gltf,
+        gpa,
+        @embedFile("DamagedHelmet/glTF/DamagedHelmet.gltf"),
+        .{
+            .ignore_unknown_fields = true,
+        },
+    );
+    defer gltf_json.deinit();
+
+    const gltf: *const Gltf = &gltf_json.value;
+
+    const scenes = gltf.scenes orelse return Error.EmptyScenes;
+    const nodes = gltf.nodes orelse return Error.EmptyNodes;
+
+    const meshes = gltf.meshes orelse return Error.EmptyMeshes;
+    // const buffers = gltf.buffers orelse return Error.EmptyBuffers;
+    const bufferViews = gltf.bufferViews orelse return Error.EmptyBufferViews;
+
+    const accessors = gltf.accessors orelse return Error.EmptyAccessors;
+
+    const root_scene_idx = gltf.scene orelse return Error.NoRootScene;
+    const root_scene = scenes[root_scene_idx];
+
+    // Laod scene
+
+    // Queue load resources
+
+    const scene_nodes = root_scene.nodes orelse return Error.EmptyNodes;
+    for (scene_nodes) |nidx| {
+        // sol.log.debug("{s}", .{nodes[nidx].name.?});
+        // process matrix or TRS
+
+        const midx = nodes[nidx].mesh orelse continue;
+
+        const primitives = meshes[midx].primitives;
+        for (primitives) |prim| {
+            if (prim.attributes.POSITION) |p| {
+                const vidx = accessors[p].bufferView;
+                sol.log.debug("position buffer length {B}", .{bufferViews[vidx].byteLength});
+            }
+
+            if (prim.indices) |iidx| {
+                const vidx = accessors[iidx].bufferView;
+                sol.log.debug("buffer length {B}", .{bufferViews[vidx].byteLength});
+            }
+        }
+    }
+}
+
 // TODO: Move to gfx
 const sg = sol.gfx_native;
 
@@ -198,7 +264,7 @@ pub const Material = struct {
     ntextures: u8 = 0,
 
     // TODO: Maybe moved to implementation,
-    // because a lot of the time it's common tot the entire pass
+    // because a lot of the time it's uniform through the entire pass
     //
     // uniform: []u8,
     // nubos: u8 = 0,
@@ -237,6 +303,10 @@ const GltfViewer = struct {
         main_camera: *MainCamera,
         pbr: *PBR,
     ) !GltfViewer {
+        LoadGltf(gpa) catch |e| {
+            @panic(@errorName(e));
+        };
+
         const vertices = [_]PCF32{
             .{ .{ -1.0, -1.0, -1.0 }, .{ 1.0, 0.0, 0.0, 1.0 } },
             .{ .{ 1.0, -1.0, -1.0 }, .{ 1.0, 0.0, 0.0, 1.0 } },
