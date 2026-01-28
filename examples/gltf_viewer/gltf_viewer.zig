@@ -14,140 +14,6 @@ const sol_fetch = @import("sol_fetch");
 const sol_camera = @import("sol_camera");
 const MainCamera = sol_camera.MainCamera;
 
-const zstbi = @import("zstbi");
-
-// TODO: Move to GLTFLoader
-
-const Gltf = @import("Gltf.zig");
-
-const Error = error{
-    NoRootScene,
-    EmptyScenes,
-    EmptyNodes,
-    EmptyMeshes,
-    EmptyBuffers,
-    EmptyBufferViews,
-    EmptyAccessors,
-    FailedToParse,
-};
-
-pub fn LoadGltf(gpa: Allocator) !void {
-    const my_path = "examples/gltf_viewer/DamagedHelmet/glTF/DamagedHelmet.gltf";
-    const path = my_path[0..];
-
-    const gltf_json = try std.json.parseFromSlice(
-        Gltf,
-        gpa,
-        @embedFile("DamagedHelmet/glTF/DamagedHelmet.gltf"),
-        .{
-            .ignore_unknown_fields = true,
-        },
-    );
-    defer gltf_json.deinit();
-
-    const gltf: *const Gltf = &gltf_json.value;
-
-    const scenes = gltf.scenes orelse return Error.EmptyScenes;
-    const nodes = gltf.nodes orelse return Error.EmptyNodes;
-
-    const meshes = gltf.meshes orelse return Error.EmptyMeshes;
-    const buffers = gltf.buffers orelse return Error.EmptyBuffers;
-    const bufferViews = gltf.bufferViews orelse return Error.EmptyBufferViews;
-
-    const accessors = gltf.accessors orelse return Error.EmptyAccessors;
-
-    const root_scene_idx = gltf.scene orelse return Error.NoRootScene;
-    const root_scene = scenes[root_scene_idx];
-
-    // Load scene
-
-    // Queue load resources
-    const bufferData = try gpa.alloc([]const u8, buffers.len);
-    defer gpa.free(bufferData);
-
-    for (buffers, 0..) |buffer, bidx| {
-        // TODO: Store paths
-        if (buffer.uri) |uri| {
-            const dir = std.fs.path.dirname(path) orelse return Error.FailedToParse;
-            const uri_path = try std.fs.path.join(
-                gpa,
-                &[_][]const u8{ dir, uri },
-            );
-            defer gpa.free(uri_path);
-
-            sol.log.debug("{s}", .{uri_path});
-            bufferData[bidx] = try sol.fs.read(gpa, uri_path, .{});
-            std.debug.assert(bufferData[bidx].len >= buffers[bidx].byteLength);
-        }
-    }
-
-    defer {
-        for (0..buffers.len) |bidx| {
-            gpa.free(bufferData[bidx]);
-        }
-    }
-
-    const scene_nodes = root_scene.nodes orelse return Error.EmptyNodes;
-    for (scene_nodes) |nidx| {
-        // sol.log.debug("{s}", .{nodes[nidx].name.?});
-        // process matrix or TRS
-        const midx = nodes[nidx].mesh orelse continue;
-
-        const primitives = meshes[midx].primitives;
-        for (primitives) |prim| {
-            if (prim.attributes.POSITION) |pidx| {
-                const accessor = &accessors[pidx];
-                const vidx = accessor.bufferView;
-                const view = &bufferViews[vidx];
-                const buffer = bufferData[view.buffer][view.byteOffset .. view.byteOffset + view.byteLength];
-
-                const stride = view.byteStride orelse blk: {
-                    const accessor_type = std.meta.stringToEnum(
-                        Gltf.AccesorType,
-                        accessor.type,
-                    ) orelse return Error.FailedToParse;
-
-                    // Accessor type is mapped to element count.
-                    const count: u32 = @intFromEnum(accessor_type);
-
-                    // TODO: Define vbo at this point
-                    break :blk switch (accessor.componentType) {
-                        .FLOAT => count * 4,
-                        else => @panic("Invalid POSITION format!"),
-                    };
-                };
-
-                sol.log.debug("position buffer length {B}", .{bufferViews[vidx].byteLength});
-                var offset: usize = 0;
-                while (offset < view.byteLength) : (offset += stride) {
-                    switch (accessor.componentType) {
-                        .FLOAT => {
-                            const position: *const [3]f32 = @ptrCast(@alignCast(buffer[offset .. offset + stride].ptr));
-                            sol.log.trace("{d} {d} {d}", .{ position[0], position[1], position[2] });
-                        },
-
-                        else => @panic("Invalid POSITION format!"),
-                    }
-                }
-
-                // TODO :Separate parsing from loading
-                // TODO : Save format for pipeline creation with material
-                const posvbo = sg.makeBuffer(.{
-                    .data = sg.asRange(buffer),
-                    .usage = .{ .vertex_buffer = true },
-                });
-                defer sg.destroyBuffer(posvbo);
-            }
-
-            if (prim.indices) |iidx| {
-                const vidx = accessors[iidx].bufferView;
-                sol.log.debug("buffer length {B}", .{bufferViews[vidx].byteLength});
-                // bufferViews[vidx].target // must be defined
-            }
-        }
-    }
-}
-
 // TODO: Move to gfx
 const sg = sol.gfx_native;
 
@@ -157,9 +23,11 @@ const Primitive = struct {
 
     ibo: ?sg.Buffer = .{},
     nindices: usize = 0,
+
+    mat: u32 = 0,
 };
 
-pub fn IMesh(comptime VertexT: type) type {
+pub fn IPrimitive(comptime VertexT: type) type {
     const tinfo = @typeInfo(VertexT);
     switch (tinfo) {
         .@"struct" => {},
@@ -199,7 +67,7 @@ pub fn IMesh(comptime VertexT: type) type {
             };
         }
 
-        pub fn mesh(self: Self) Primitive {
+        pub fn primitive(self: Self) Primitive {
             return self._mesh;
         }
 
@@ -215,8 +83,48 @@ pub fn IMesh(comptime VertexT: type) type {
     };
 }
 
-// TODO: One more abstraction back from shader
+const Mesh = struct {
+    primitives: []Primitive,
+};
 
+const Node = struct {
+    local_matrix: math.Mat4,
+    meshes: []const Mesh,
+};
+
+const Scene = struct {
+    meshes: []Mesh,
+    nodes: []Node,
+};
+
+// TODO: Move to GLTFLoader
+const GltfLoader = @import("GltfLoader.zig");
+const zstbi = @import("zstbi");
+
+const Error = error{
+    NoRootScene,
+    EmptyScenes,
+    EmptyNodes,
+    EmptyMeshes,
+    EmptyBuffers,
+    EmptyBufferViews,
+    EmptyAccessors,
+    FailedToParse,
+};
+
+pub fn LoadGltf(gpa: Allocator) !Scene {
+    const my_path = "examples/gltf_viewer/DamagedHelmet/glTF/DamagedHelmet.gltf";
+    const path = my_path[0..];
+
+    _ = try GltfLoader.init(gpa, path);
+
+    return .{
+        .meshes = undefined,
+        .nodes = undefined,
+    };
+}
+
+// TODO: One more abstraction back from shader
 pub const ShadowPass = struct {};
 
 pub const GBufferPass = struct {
@@ -359,7 +267,7 @@ const GltfViewer = struct {
     main_camera: *MainCamera,
     pbr: *PBR,
 
-    cube_mesh: IMesh(PCF32),
+    cube_mesh: IPrimitive(PCF32),
     red_mat: Material,
 
     pub fn init(
@@ -368,7 +276,7 @@ const GltfViewer = struct {
         main_camera: *MainCamera,
         pbr: *PBR,
     ) !GltfViewer {
-        LoadGltf(gpa) catch |e| {
+        _ = LoadGltf(gpa) catch |e| {
             @panic(@errorName(e));
         };
 
@@ -425,7 +333,7 @@ const GltfViewer = struct {
     }
 
     pub fn frame(self: *GltfViewer) void {
-        self.pbr.draw(self.cube_mesh.mesh(), self.red_mat);
+        self.pbr.draw(self.cube_mesh.primitive(), self.red_mat);
     }
 
     pub fn deinit(self: *GltfViewer) void {

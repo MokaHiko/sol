@@ -59,6 +59,15 @@ pub const AccesorType = enum(u32) {
     MAT4 = 16,
 };
 
+pub const ComponentType = enum(u32) {
+    BYTE = 5120,
+    UNSIGNED_BYTE = 5121,
+    SHORT = 5122,
+    UNSIGNED_SHORT = 5123,
+    UNSIGNED_INT = 5125,
+    FLOAT = 5126,
+};
+
 asset: struct {
     /// The glTF version in the form of <major>.<minor> that this asset targets.
     version: []u8,
@@ -268,15 +277,6 @@ bufferViews: ?[]struct {
 /// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#accessors
 /// A typed view into a buffer view that contains raw binary data.
 accessors: ?[]struct {
-    const ComponentType = enum(u32) {
-        BYTE = 5120,
-        UNSIGNED_BYTE = 5121,
-        SHORT = 5122,
-        UNSIGNED_SHORT = 5123,
-        UNSIGNED_INT = 5125,
-        FLOAT = 5126,
-    };
-
     /// The index of the bufferView.
     bufferView: u32,
 
