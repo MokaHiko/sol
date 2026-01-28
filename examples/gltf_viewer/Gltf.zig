@@ -48,6 +48,17 @@ const Gltf = @This();
 
 const std = @import("std");
 
+// Enum set to element #
+pub const AccesorType = enum(u32) {
+    SCALAR = 1,
+    VEC2 = 2,
+    VEC3 = 3,
+    VEC4 = 4,
+    // MAT2 = 3,
+    MAT3 = 9,
+    MAT4 = 16,
+};
+
 asset: struct {
     /// The glTF version in the form of <major>.<minor> that this asset targets.
     version: []u8,
@@ -264,16 +275,6 @@ accessors: ?[]struct {
         UNSIGNED_SHORT = 5123,
         UNSIGNED_INT = 5125,
         FLOAT = 5126,
-    };
-
-    const Type = enum {
-        SCALAR,
-        VEC2,
-        VEC3,
-        VEC4,
-        MAT2,
-        MAT3,
-        MAT4,
     };
 
     /// The index of the bufferView.

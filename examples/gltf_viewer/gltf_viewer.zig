@@ -32,6 +32,9 @@ const Error = error{
 };
 
 pub fn LoadGltf(gpa: Allocator) !void {
+    const my_path = "examples/gltf_viewer/DamagedHelmet/glTF/DamagedHelmet.gltf";
+    const path = my_path[0..];
+
     const gltf_json = try std.json.parseFromSlice(
         Gltf,
         gpa,
@@ -48,7 +51,7 @@ pub fn LoadGltf(gpa: Allocator) !void {
     const nodes = gltf.nodes orelse return Error.EmptyNodes;
 
     const meshes = gltf.meshes orelse return Error.EmptyMeshes;
-    // const buffers = gltf.buffers orelse return Error.EmptyBuffers;
+    const buffers = gltf.buffers orelse return Error.EmptyBuffers;
     const bufferViews = gltf.bufferViews orelse return Error.EmptyBufferViews;
 
     const accessors = gltf.accessors orelse return Error.EmptyAccessors;
@@ -56,27 +59,90 @@ pub fn LoadGltf(gpa: Allocator) !void {
     const root_scene_idx = gltf.scene orelse return Error.NoRootScene;
     const root_scene = scenes[root_scene_idx];
 
-    // Laod scene
+    // Load scene
 
     // Queue load resources
+    const bufferData = try gpa.alloc([]const u8, buffers.len);
+    defer gpa.free(bufferData);
+
+    for (buffers, 0..) |buffer, bidx| {
+        // TODO: Store paths
+        if (buffer.uri) |uri| {
+            const dir = std.fs.path.dirname(path) orelse return Error.FailedToParse;
+            const uri_path = try std.fs.path.join(
+                gpa,
+                &[_][]const u8{ dir, uri },
+            );
+            defer gpa.free(uri_path);
+
+            sol.log.debug("{s}", .{uri_path});
+            bufferData[bidx] = try sol.fs.read(gpa, uri_path, .{});
+            std.debug.assert(bufferData[bidx].len >= buffers[bidx].byteLength);
+        }
+    }
+
+    defer {
+        for (0..buffers.len) |bidx| {
+            gpa.free(bufferData[bidx]);
+        }
+    }
 
     const scene_nodes = root_scene.nodes orelse return Error.EmptyNodes;
     for (scene_nodes) |nidx| {
         // sol.log.debug("{s}", .{nodes[nidx].name.?});
         // process matrix or TRS
-
         const midx = nodes[nidx].mesh orelse continue;
 
         const primitives = meshes[midx].primitives;
         for (primitives) |prim| {
-            if (prim.attributes.POSITION) |p| {
-                const vidx = accessors[p].bufferView;
+            if (prim.attributes.POSITION) |pidx| {
+                const accessor = &accessors[pidx];
+                const vidx = accessor.bufferView;
+                const view = &bufferViews[vidx];
+                const buffer = bufferData[view.buffer][view.byteOffset .. view.byteOffset + view.byteLength];
+
+                const stride = view.byteStride orelse blk: {
+                    const accessor_type = std.meta.stringToEnum(
+                        Gltf.AccesorType,
+                        accessor.type,
+                    ) orelse return Error.FailedToParse;
+
+                    // Accessor type is mapped to element count.
+                    const count: u32 = @intFromEnum(accessor_type);
+
+                    // TODO: Define vbo at this point
+                    break :blk switch (accessor.componentType) {
+                        .FLOAT => count * 4,
+                        else => @panic("Invalid POSITION format!"),
+                    };
+                };
+
                 sol.log.debug("position buffer length {B}", .{bufferViews[vidx].byteLength});
+                var offset: usize = 0;
+                while (offset < view.byteLength) : (offset += stride) {
+                    switch (accessor.componentType) {
+                        .FLOAT => {
+                            const position: *const [3]f32 = @ptrCast(@alignCast(buffer[offset .. offset + stride].ptr));
+                            sol.log.trace("{d} {d} {d}", .{ position[0], position[1], position[2] });
+                        },
+
+                        else => @panic("Invalid POSITION format!"),
+                    }
+                }
+
+                // TODO :Separate parsing from loading
+                // TODO : Save format for pipeline creation with material
+                const posvbo = sg.makeBuffer(.{
+                    .data = sg.asRange(buffer),
+                    .usage = .{ .vertex_buffer = true },
+                });
+                defer sg.destroyBuffer(posvbo);
             }
 
             if (prim.indices) |iidx| {
                 const vidx = accessors[iidx].bufferView;
                 sol.log.debug("buffer length {B}", .{bufferViews[vidx].byteLength});
+                // bufferViews[vidx].target // must be defined
             }
         }
     }
@@ -85,8 +151,7 @@ pub fn LoadGltf(gpa: Allocator) !void {
 // TODO: Move to gfx
 const sg = sol.gfx_native;
 
-// TODO: This is really a mesh primitive
-const Mesh = struct {
+const Primitive = struct {
     vbo: sg.Buffer = .{},
     nvertices: usize = 0,
 
@@ -104,7 +169,7 @@ pub fn IMesh(comptime VertexT: type) type {
     return struct {
         const Self = @This();
 
-        _mesh: Mesh = .{},
+        _mesh: Primitive = .{},
 
         // TODO: Meta data, comaptible w x or whatever
         // Requires x buffer
@@ -134,7 +199,7 @@ pub fn IMesh(comptime VertexT: type) type {
             };
         }
 
-        pub fn mesh(self: Self) Mesh {
+        pub fn mesh(self: Self) Primitive {
             return self._mesh;
         }
 
@@ -209,7 +274,7 @@ pub const PBR = struct {
 
     // TODO: Remove immediate mode drawing
     var time: f32 = 0;
-    pub fn draw(self: *PBR, mesh: Mesh, mat: Material) void {
+    pub fn draw(self: *PBR, mesh: Primitive, mat: Material) void {
         const camera = self.main_camera.camera();
 
         sg.applyPipeline(self.gpass.pip);
