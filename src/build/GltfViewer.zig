@@ -1,4 +1,4 @@
-const SolShape = @This();
+const GltfViewer = @This();
 
 const std = @import("std");
 const Build = std.Build;
@@ -9,9 +9,10 @@ const Sol = @import("Sol.zig");
 const SolMath = @import("SolMath.zig");
 const SolCamera = @import("SolCamera.zig");
 
-const ShaderBuilder = @import("ShaderBuilder.zig");
+const ZStbi = @import("ZStbi.zig");
+const Gltf = @import("SolGltf.zig");
 
-const Tracy = @import("Tracy.zig");
+const ShaderBuilder = @import("ShaderBuilder.zig");
 
 module: *Build.Module,
 
@@ -21,22 +22,27 @@ pub fn init(
     sol: Sol,
     sol_math: SolMath,
     sol_camera: SolCamera,
+    sol_gltf: Gltf,
     shader_builder: ShaderBuilder,
-) !SolShape {
-    const shape_shaders = try shader_builder.createModule("assets/shaders/shape_shaders.glsl");
+    zstbi: ZStbi,
+) !GltfViewer {
+    const pbr_shaders = try shader_builder.createModule("assets/shaders/pbr_shaders.glsl");
 
-    const mod = b.addModule("sol_shape", .{
+    const mod_main = b.createModule(.{
+        .root_source_file = b.path("examples/gltf_viewer/gltf_viewer.zig"),
         .target = config.target,
-        .root_source_file = b.path("src/sol_shape/shape.zig"),
+        .optimize = config.optimize,
         .imports = &.{
             .{ .name = "sol", .module = sol.module },
             .{ .name = "sol_math", .module = sol_math.module },
             .{ .name = "sol_camera", .module = sol_camera.module },
-            .{ .name = "shape_shaders", .module = shape_shaders },
+            .{ .name = "sol_gltf", .module = sol_gltf.module },
+            .{ .name = "pbr_shaders", .module = pbr_shaders },
+            .{ .name = "zstbi", .module = zstbi.module },
         },
     });
 
     return .{
-        .module = mod,
+        .module = mod_main,
     };
 }

@@ -14,9 +14,9 @@ _quat: Quat,
 /// This is equivalent to a world/extrinsic Z-Y-X rotation.
 /// The resulting quaternion is normalized to ensure unit length.
 pub fn new(x: f32, y: f32, z: f32) Rotation {
-    const yaw = Quat.from_axis_angle(Vec3.up, y);
-    const pitch = Quat.from_axis_angle(Vec3.right, x);
-    const roll = Quat.from_axis_angle(Vec3.forward, z);
+    const yaw = Quat.fromAxisAngle(Vec3.up, y);
+    const pitch = Quat.fromAxisAngle(Vec3.right, x);
+    const roll = Quat.fromAxisAngle(Vec3.forward, z);
 
     // Y - X - Z intrinsic
     return .{ ._quat = yaw.mul(pitch.mul(roll)).normalize() catch unreachable };

@@ -47,3 +47,12 @@ pub fn windowWidth() i32 {
 pub fn windowHeight() i32 {
     return sapp.height();
 }
+
+/// Get an averaged/smoothed frame duration in seconds t in ms
+pub fn deltaTime() f64 {
+    return sapp.frameDuration();
+}
+
+pub fn quit() void {
+    sapp.quit();
+}

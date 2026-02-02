@@ -48,10 +48,13 @@ pub const ModuleDesc = struct {
     opts: Module.Options,
 };
 
+// TODO: Move to SokolRenderer and creeate module
 pub const Renderer = struct {
     pass_action: sol.gfx_native.PassAction = .{},
     show_first_window: bool = true,
     show_second_window: bool = true,
+
+    pub const Sampler2D = struct { i32 };
 
     pub fn init() !Renderer {
         // Initialize sokol-gfx.
@@ -70,6 +73,17 @@ pub const Renderer = struct {
         }
 
         return .{};
+    }
+
+    pub fn makeSampler(self: *Renderer, desc: struct {}) Sampler2D {
+        _ = self;
+        _ = desc;
+        return .{@intCast(sol.gfx_native.makeSampler(.{}).id)};
+    }
+
+    pub fn destroySampler(self: *Renderer, sampler: Sampler2D) void {
+        _ = self;
+        sol.gfx_native.destroySampler(.{ .id = @intCast(sampler.@"0") });
     }
 
     pub fn frame(self: *Renderer) void {
@@ -216,7 +230,12 @@ fn initWError() !void {
     // Initial clear color.
     self.pass_action.colors[0] = .{
         .load_action = .CLEAR,
-        .clear_value = .{ .r = 242.0 / 255.0, .g = 242.0 / 255.0, .b = 242.0 / 255.0, .a = 255.0 },
+        .clear_value = .{
+            .r = 242.0 / 255.0,
+            .g = 242.0 / 255.0,
+            .b = 242.0 / 255.0,
+            .a = 1.0,
+        },
     };
 
     sol.log.trace("Gfx: {s}", .{@tagName(sol.gfx_native.queryBackend())});
