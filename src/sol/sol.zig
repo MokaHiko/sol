@@ -52,3 +52,7 @@ pub fn windowHeight() i32 {
 pub fn deltaTime() f64 {
     return sapp.frameDuration();
 }
+
+pub fn quit() void {
+    sapp.quit();
+}

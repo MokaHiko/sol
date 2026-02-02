@@ -33,6 +33,7 @@
 //!         Primitives:
 //!             - targets (Morph Targets)
 //!             - 2 max texture coords
+//!             - 1 max color attributes
 //! - Textures:
 //!     - Name, Extensions, Extras
 //!     - Images:
@@ -40,11 +41,13 @@
 //!         - Buffer view W MimeType
 //!     - Samplers:
 //!         - Name, Extensions, Extras
+//! - Material:
+//!     - Point and Line Materials
 //! - Animation:
 //! - Camera:
 //! - Extensions
 //! - Extras
-const Gltf = @This();
+const GltfJson = @This();
 
 const std = @import("std");
 
@@ -66,6 +69,175 @@ pub const ComponentType = enum(u32) {
     UNSIGNED_SHORT = 5123,
     UNSIGNED_INT = 5125,
     FLOAT = 5126,
+};
+
+/// Sampler specifies filtering and wrapping modes.
+pub const Sampler = struct {
+    const Filter = enum(u32) {
+        NEAREST = 9728,
+        LINEAR = 9729,
+
+        // minFilter Only
+        NEAREST_MIPMAP_NEAREST = 9984,
+        LINEAR_MIPMAP_NEAREST = 9985,
+        NEAREST_MIPMAP_LINEAR = 9986,
+        LINEAR_MIPMAP_LINEAR = 9987,
+    };
+
+    const WrapMode = enum(u32) {
+        CLAMP_TO_EDGE = 33071,
+        MIRRORED_REPEAT = 33648,
+        REPEAT = 10497,
+    };
+
+    magFilter: ?Filter = null,
+    minFilter: ?Filter = null,
+    wrapS: WrapMode = .REPEAT,
+    wrapT: WrapMode = .REPEAT,
+};
+
+/// Primitives correspond to the data required for GPU draw calls.
+pub const Primitive = struct {
+    pub const Mode = enum(u32) {
+        POINTS = 0,
+        LINES,
+        LINE_LOOP,
+        LINE_STRIP,
+        TRIANGLES,
+        TRIANGLE_STRIP,
+        TRIANGLE_FAN,
+    };
+
+    /// A plain JSON object, where each key corresponds to a mesh attribute semantic
+    /// and each value is the index of the accessor containing attribute’s data.
+    attributes: struct {
+        /// Unitless XYZ vertex positions.
+        POSITION: ?u32 = null,
+
+        /// Normalized XYZ vertex normals.
+        NORMAL: ?u32 = null,
+
+        /// XYZW vertex tangents where the XYZ portion is normalized,
+        /// and the W component is a sign value (1 or +1) indicating handedness of the tangent basis.
+        ///
+        /// When tangents are not specified, client implementations SHOULD calculate tangents using default MikkTSpace
+        /// algorithms with the specified vertex positions, normals, and texture coordinates associated with the normal texture.
+        TANGENT: ?u32 = null,
+
+        ///ST texture coordinates.
+        TEXCOORD_0: ?u32 = null,
+        TEXCOORD_1: ?u32 = null,
+
+        /// RGB or RGBA vertex color linear multiplier.
+        COLOR_0: ?u32 = null,
+
+        // JOINT_N,
+        // WEIGHT_N,
+    },
+
+    /// The index of the accessor that contains the vertex indices.
+    indices: ?u32 = null,
+
+    /// The index of the accessor that contains the vertex indices.
+    material: ?u32 = null,
+
+    /// The index of the accessor that contains the vertex indices.
+    mode: Mode = .TRIANGLES,
+};
+
+/// A texture and its samplers.
+pub const Texture = struct {
+    /// Index into images array, if not present, data must be provided by extension.
+    source: u32,
+
+    /// If not present, repeated wrapping sampler must be provided.
+    sampler: ?u32,
+
+    /// The user-defined name of this object.
+    name: ?[]const u8 = null,
+};
+
+pub const Material = struct {
+    const AlphaMode = enum {
+        /// The rendered output is fully opaque and any alpha value is ignored.
+        OPAQUE,
+        /// The rendered output is either fully opaque or fully transparent depending on the alpha value and the specified alpha cutoff value
+        MASK,
+        /// The rendered output is combined with the background.
+        BLEND,
+    };
+
+    /// The user-defined name of this object.
+    name: ?[]const u8 = null,
+
+    /// The user-defined name of this object.
+    pbrMetallicRoughness: ?struct {
+        /// The base color of the material.
+        baseColorFactor: [4]f32 = [_]f32{ 1.0, 1.0, 1.0, 1.0 },
+
+        /// The base color texture MUST contain 8-bit values encoded with the sRGB. baseColorTexture: ?struct {
+        baseColorTexture: ?struct {
+            index: u32,
+            texCoord: u32 = 0,
+        } = null,
+
+        /// The metalness of the material.
+        ///
+        /// values range from 0.0 (non-metal) to 1.0 (metal)
+        metallicFactor: f32 = 1.0,
+
+        /// The textures for metalness and roughness properties are packed together in a single texture.
+        ///
+        /// Its green channel contains roughness values and its blue channel contains metalness values.
+        metallicRoughnessTexture: ?struct {
+            index: u32,
+            texCoord: u32 = 0,
+        } = null,
+
+        /// The roughness of the material.
+        ///
+        /// values range from 0.0 (smooth) to 1.0 (rough).
+        roughnessFactor: f32 = 0.0,
+    },
+
+    /// A tangent space normal texture. Encodes XYZ components of a normal vector in tangent space
+    /// as RGB values stored with linear transfer function.
+    ///
+    /// Texel values MUST be mapped as follows:
+    /// - red [0.0 .. 1.0] to X [-1 .. 1]
+    /// - green [0.0 .. 1.0] to Y [-1 .. 1]
+    /// - blue (0.5 .. 1.0] maps to Z (0 .. 1]
+    normalTexture: ?struct {
+        index: u32,
+        texCoord: u32 = 0,
+        scale: f32 = 1.0,
+    } = null,
+
+    /// The occlusion texture.
+    ///
+    /// it indicates areas that receive less indirect lighting from ambient sources.
+    /// Direct lighting is not affected. The red channel of the texture encodes the occlusion value,
+    /// where 0.0 means fully-occluded area (no indirect lighting) and 1.0 means not occluded area (full indirect lighting).
+    occlusionTexture: ?struct {
+        index: u32,
+        texCoord: u32 = 0,
+        strength: f32 = 1.0,
+    } = null,
+
+    /// The emissive texture and factor control the color and intensity of the light being emitted by the material.
+    emissiveTexture: ?struct {
+        index: u32,
+        texCoord: u32 = 0,
+    } = null,
+
+    emissiveFactor: [3]f32 = [_]f32{ 1.0, 1.0, 1.0 },
+
+    alphaMode: []const u8 = "OPAQUE",
+
+    alphaCutOff: f32 = 0.5,
+
+    /// When this value is false, back-face culling is enabled.
+    doubleSided: bool = false,
 };
 
 asset: struct {
@@ -126,51 +298,10 @@ nodes: ?[]struct {
 /// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#meshes
 /// Meshes are defined as arrays of primitives.
 meshes: ?[]struct {
-    /// Primitives correspond to the data required for GPU draw calls.
-    primitives: []struct {
-        const Mode = enum(u32) {
-            POINTS = 0,
-            LINES,
-            LINE_LOOP,
-            LINE_STRIP,
-            TRIANGLES,
-            TRIANGLE_STRIP,
-            TRIANGLE_FAN,
-        };
+    /// The user-defined name of this object.
+    name: ?[]const u8,
 
-        /// A plain JSON object, where each key corresponds to a mesh attribute semantic
-        /// and each value is the index of the accessor containing attribute’s data.
-        attributes: struct {
-            /// Unitless XYZ vertex positions.
-            POSITION: ?u32 = null,
-
-            /// Normalized XYZ vertex normals.
-            NORMAL: ?u32 = null,
-
-            /// XYZW vertex tangents where the XYZ portion is normalized,
-            /// and the W component is a sign value (1 or +1) indicating handedness of the tangent basis.
-            ///
-            /// When tangents are not specified, client implementations SHOULD calculate tangents using default MikkTSpace
-            /// algorithms with the specified vertex positions, normals, and texture coordinates associated with the normal texture.
-            TANGENT: ?u32 = null,
-
-            TEXCOORD_0: ?u32 = null,
-            TEXCOORD_1: ?u32 = null,
-
-            // JOINT_N,
-            //
-            // WEIGHT_N,
-        },
-
-        /// The index of the accessor that contains the vertex indices.
-        indices: ?u32 = null,
-
-        /// The index of the accessor that contains the vertex indices.
-        material: ?u32 = null,
-
-        /// The index of the accessor that contains the vertex indices.
-        mode: Mode = .TRIANGLES,
-    },
+    primitives: []Primitive,
 },
 
 images: ?[]struct {
@@ -181,41 +312,11 @@ images: ?[]struct {
     mimeType: ?u32 = null,
 },
 
-samplers: ?[]struct {
-    const Filter = enum(u32) {
-        NEAREST = 9728,
-        LINEAR = 9729,
+samplers: ?[]Sampler,
 
-        // minFilter Only
-        NEAREST_MIPMAP_NEAREST = 9984,
-        LINEAR_MIPMAP_NEAREST = 9985,
-        NEAREST_MIPMAP_LINEAR = 9986,
-        LINEAR_MIPMAP_LINEAR = 9987,
-    };
+textures: ?[]Texture,
 
-    const WrapMode = enum(u32) {
-        CLAMP_TO_EDGE = 33071,
-        MIRRORED_REPEAT = 33648,
-        REPEAT = 10497,
-    };
-
-    magFilter: ?Filter = null,
-    minFilter: ?Filter = null,
-    wrapS: WrapMode = .REPEAT,
-    wrapT: WrapMode = .REPEAT,
-},
-
-/// A texture and its samplers.
-textures: ?[]struct {
-    /// If not present, provided by extension.
-    source: ?u32,
-
-    /// If not present, repeated wrapping sampler must be provided.
-    sampler: ?u32,
-
-    /// The user-defined name of this object.
-    name: ?[]const u8 = null,
-},
+materials: ?[]Material,
 
 /// glTF 2.0 — Buffers and Buffer Views
 /// https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#buffers-and-buffer-views
