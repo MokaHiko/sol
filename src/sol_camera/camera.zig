@@ -9,20 +9,20 @@ const sol = @import("sol");
 pub const Camera3D = @import("Camera3D.zig");
 
 pub const MainCamera = struct {
-    _camera: Camera3D,
+    camera_3d: Camera3D,
 
     pub fn init() !MainCamera {
         return .{
-            ._camera = .init(.Orthographic, .{}),
+            .camera_3d = .init(.Orthographic, .{}),
         };
     }
 
     pub fn camera(self: *MainCamera) *Camera3D {
-        return &self._camera;
+        return &self.camera_3d;
     }
 
     pub fn frame(self: *MainCamera) void {
-        self._camera.calcView();
+        self.camera_3d.calcView();
     }
 };
 

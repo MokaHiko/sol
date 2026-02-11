@@ -60,14 +60,11 @@ pub fn init(allocator: Allocator, font: Font) !FontAtlas {
 
     const view = sol.gfx_native.makeView(.{
         .texture = .{
-            .image = atlas._image,
+            .image = .{ .id = atlas.gpuHandle() },
         },
     });
 
-    return .{
-        .atlas = atlas,
-        .view = view,
-    };
+    return .{ .atlas = atlas, .view = view };
 }
 
 pub fn deinit(self: *FontAtlas) void {

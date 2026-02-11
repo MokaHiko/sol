@@ -54,7 +54,7 @@ pub fn init(white: gfx.ImageView, linear_sampler: sg.Sampler) !ShapePipeline {
     var bindings: sg.Bindings = .{};
     bindings.vertex_buffers[0] = shape_vbo;
 
-    bindings.views[shaders.VIEW_tex] = white._view;
+    bindings.views[shaders.VIEW_tex] = white.view;
     bindings.samplers[shaders.SMP_smp] = linear_sampler;
 
     return .{

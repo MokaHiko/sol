@@ -15,7 +15,7 @@ const math = @import("sol_math");
 const Mat4 = math.Mat4;
 const Vec3 = math.Vec3;
 
-const shaders = @import("shape_shaders");
+const shd = @import("shape_shaders");
 
 const GridPipeline = @import("GridPipeline.zig");
 const ShapePipeline = @import("ShapePipeline.zig");
@@ -182,7 +182,7 @@ fn drawShape(
 
         var img_found: bool = false;
         for (self.views.items, 0..) |sview, i| {
-            if (sview.gpuHandle() == view.gpuHandle()) {
+            if (sview.gpuHandle().id == view.gpuHandle().id) {
                 shape.ctx = @intCast(i);
                 img_found = true;
                 break;
@@ -208,12 +208,29 @@ pub fn frame(self: *ShapeRenderer) void {
 
     const camera = self.main_camera.camera();
 
+    const sglue = sol.glue;
+    var action: sg.PassAction = .{};
+    action.colors[0] = .{
+        .load_action = .CLEAR,
+        .clear_value = .{
+            .r = 242.0 / 255.0,
+            .g = 242.0 / 255.0,
+            .b = 242.0 / 255.0,
+            .a = 1.0,
+        },
+    };
+    sg.beginPass(.{
+        .action = action,
+        .swapchain = sglue.swapchain(),
+    });
+    defer sg.endPass();
+
     // ==============================
     // ========== Grid ==============
     // ==============================
-    const inv_view_proj = camera.viewProj().inverse() catch unreachable;
+    const inv_view_proj = camera.proj.mul(camera.view).inverse() catch unreachable;
     sg.applyPipeline(self.grid_pipeline.pip);
-    var props = shaders.GridProps{
+    var props = shd.GridProps{
         .inv_view_proj = undefined,
         .resolution = .{
             @floatFromInt(sol.windowWidth()),
@@ -227,7 +244,7 @@ pub fn frame(self: *ShapeRenderer) void {
         props.inv_view_proj[idx] = inv_view_proj.at(.{ x, y });
     }
 
-    sg.applyUniforms(shaders.UB_grid_props, sg.asRange(&props));
+    sg.applyUniforms(shd.UB_grid_props, sg.asRange(&props));
     sg.draw(0, 6, 1);
 
     // ==============================
@@ -296,22 +313,22 @@ pub fn frame(self: *ShapeRenderer) void {
         const py: f32 = @floatFromInt(0);
         const translate = Mat4.translate(Vec3.new(px, py, 0));
 
-        const mvp = camera.viewProj().mul(translate);
-        sg.applyUniforms(shaders.UB_canvas_props, sg.asRange(&mvp));
+        const mvp = camera.proj.mul(camera.view.mul(translate));
+        sg.applyUniforms(shd.UB_canvas_props, sg.asRange(&mvp));
 
         switch (ltype) {
             .Circle, .Rect => {
                 const color = gfx.color.RGBA.fromU32(tints[lctx]);
-                sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
+                sg.applyUniforms(shd.UB_shape_material, sg.asRange(&color));
 
-                self.pipeline.bindings.views[shaders.VIEW_tex] = self.white_image_view._view;
+                self.pipeline.bindings.views[shd.VIEW_tex] = self.white_image_view.view;
             },
 
             .CircleTextured, .RectTextured => {
                 const color = gfx.color.RGBA.fromU32(0xFFFFFFFF);
-                sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
+                sg.applyUniforms(shd.UB_shape_material, sg.asRange(&color));
 
-                self.pipeline.bindings.views[shaders.VIEW_tex] = views[lctx]._view;
+                self.pipeline.bindings.views[shd.VIEW_tex] = views[lctx].view;
             },
 
             else => unreachable,
@@ -334,21 +351,21 @@ pub fn frame(self: *ShapeRenderer) void {
     const py: f32 = @floatFromInt(0);
     const translate = Mat4.translate(Vec3.new(px, py, 0));
 
-    const mvp = camera.viewProj().mul(translate);
-    sg.applyUniforms(shaders.UB_canvas_props, sg.asRange(&mvp));
+    const mvp = camera.proj.mul(camera.view.mul(translate));
+    sg.applyUniforms(shd.UB_canvas_props, sg.asRange(&mvp));
 
     switch (ltype) {
         .Circle, .Rect => {
             const color = gfx.color.RGBA.fromU32(tints[lctx]);
-            sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
-            self.pipeline.bindings.views[shaders.VIEW_tex] = self.white_image_view._view;
+            sg.applyUniforms(shd.UB_shape_material, sg.asRange(&color));
+            self.pipeline.bindings.views[shd.VIEW_tex] = self.white_image_view.view;
         },
 
         .CircleTextured, .RectTextured => {
             const color = gfx.color.RGBA.fromU32(0xFFFFFFFF);
-            sg.applyUniforms(shaders.UB_shape_material, sg.asRange(&color));
+            sg.applyUniforms(shd.UB_shape_material, sg.asRange(&color));
 
-            self.pipeline.bindings.views[shaders.VIEW_tex] = views[lctx]._view;
+            self.pipeline.bindings.views[shd.VIEW_tex] = views[lctx].view;
         },
 
         else => unreachable,
