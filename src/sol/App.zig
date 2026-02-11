@@ -22,6 +22,10 @@ const EventQueue = @import("event/EventQueue.zig");
 
 const Input = sol.Input;
 
+pub const Limits = struct {
+    const max_modules: i32 = std.math.maxInt(i32);
+};
+
 pub const Options = struct {
     name: []const u8,
     width: i32,
@@ -48,11 +52,8 @@ pub const ModuleDesc = struct {
     opts: Module.Options,
 };
 
+// TODO: Move to Gfx module
 pub const Renderer = struct {
-    pass_action: sol.gfx_native.PassAction = .{},
-    show_first_window: bool = true,
-    show_second_window: bool = true,
-
     pub fn init() !Renderer {
         // Initialize sokol-gfx.
         sol.gfx_native.setup(.{
@@ -161,6 +162,10 @@ pub fn create(allocator: Allocator, requested_modules: []const ModuleDesc, opts:
     return app;
 }
 
+pub fn moduleCount(self: App) i32 {
+    return @intCast(self.modules.len);
+}
+
 pub fn run(self: *App) !void {
     sapp.run(.{
         .init_cb = initCallback,
@@ -194,10 +199,11 @@ fn initWError() !void {
         self.modules[mod_idx].ptr = try self.modules[mod_idx].createFn(self.allocator);
 
         sol.log.debug("[{s}]", .{self.module_names[mod_idx]});
-        sol.log.debug("\tDeps: ", .{});
-
-        for (self.module_deps[mod_idx]) |didx| {
-            sol.log.debug("- \t {s} ", .{self.module_names[didx]});
+        if (self.module_deps[mod_idx].len > 0) {
+            sol.log.debug("\tDeps: ", .{});
+            for (self.module_deps[mod_idx]) |didx| {
+                sol.log.debug("  - {s} ", .{self.module_names[didx]});
+            }
         }
 
         // TODO : Create scratch buffer with the size of arguments instead
@@ -216,7 +222,12 @@ fn initWError() !void {
     // Initial clear color.
     self.pass_action.colors[0] = .{
         .load_action = .CLEAR,
-        .clear_value = .{ .r = 242.0 / 255.0, .g = 242.0 / 255.0, .b = 242.0 / 255.0, .a = 255.0 },
+        .clear_value = .{
+            .r = 242.0 / 255.0,
+            .g = 242.0 / 255.0,
+            .b = 242.0 / 255.0,
+            .a = 1.0,
+        },
     };
 
     sol.log.trace("Gfx: {s}", .{@tagName(sol.gfx_native.queryBackend())});
@@ -245,57 +256,13 @@ export fn frameCallback() void {
 
     const self: *App = @ptrCast(@alignCast(sapp.userdata().?));
 
-    // call simgui.newFrame() before any ImGui calls
-    simgui.newFrame(.{
-        .width = sapp.width(),
-        .height = sapp.height(),
-        .delta_time = sapp.frameDuration(),
-        .dpi_scale = sapp.dpiScale(),
-    });
-
-    const backendName: [*c]const u8 = switch (sol.gfx_native.queryBackend()) {
-        .D3D11 => "Direct3D11",
-        .GLCORE => "OpenGL",
-        .GLES3 => "OpenGLES3",
-        .METAL_IOS => "Metal iOS",
-        .METAL_MACOS => "Metal macOS",
-        .METAL_SIMULATOR => "Metal Simulator",
-        .WGPU => "WebGPU",
-        .DUMMY => "Dummy",
-    };
-
-    // ImGui.
-    ig.igSetNextWindowPos(.{ .x = 10, .y = 10 }, ig.ImGuiCond_Once);
-    ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
-    if (ig.igBegin("Hello Dear ImGui!", &self.show_first_window, ig.ImGuiWindowFlags_None)) {
-        _ = ig.igColorEdit3("Background", &self.pass_action.colors[0].clear_value.r, ig.ImGuiColorEditFlags_None);
-        _ = ig.igText("Dear ImGui Version: %s", ig.IMGUI_VERSION);
-    }
-    ig.igEnd();
-
-    ig.igSetNextWindowPos(.{ .x = 50, .y = 120 }, ig.ImGuiCond_Once);
-    ig.igSetNextWindowSize(.{ .x = 400, .y = 100 }, ig.ImGuiCond_Once);
-    if (ig.igBegin("Profile", &self.show_second_window, ig.ImGuiWindowFlags_None)) {
-        _ = ig.igText("Backend: %s", backendName);
-        _ = ig.igText("fps: %.2f", ig.igGetIO().*.Framerate);
-        _ = ig.igText("ms: %.2f", 1000.0 / ig.igGetIO().*.Framerate);
-    }
-    ig.igEnd();
-
-    // Main pass.
-    sol.gfx_native.beginPass(.{ .action = self.pass_action, .swapchain = sglue.swapchain() });
-
     for (self.modules) |mod| {
         if (mod.frameFn) |frame| {
             frame(mod.ptr);
         }
     }
 
-    simgui.render();
-    sol.gfx_native.endPass();
-
     sol.gfx_native.commit();
-
     self.event_queue.flush();
 }
 
@@ -304,8 +271,9 @@ export fn cleanupCallback() void {
 
     self.allocator.free(self.module_names);
 
-    for (self.modules) |*mod| {
-        mod.deinit(self.allocator);
+    var rit: i32 = self.moduleCount() - 1;
+    while (rit >= 0) : (rit -= 1) {
+        self.modules[@intCast(rit)].deinit(self.allocator);
     }
     self.allocator.free(self.modules);
 
