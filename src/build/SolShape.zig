@@ -8,7 +8,9 @@ const Config = @import("Config.zig");
 const Sol = @import("Sol.zig");
 const SolMath = @import("SolMath.zig");
 const SolCamera = @import("SolCamera.zig");
+
 const ShaderBuilder = @import("ShaderBuilder.zig");
+
 const Tracy = @import("Tracy.zig");
 
 module: *Build.Module,

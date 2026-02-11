@@ -11,6 +11,8 @@ const SolCamera = @import("SolCamera.zig");
 const SolShape = @import("SolShape.zig");
 const SolFetch = @import("SolFetch.zig");
 
+const ZStbi = @import("ZStbi.zig");
+
 module: *Build.Module,
 
 pub fn init(
@@ -21,14 +23,8 @@ pub fn init(
     sol_camera: SolCamera,
     sol_shape: SolShape,
     sol_fetch: SolFetch,
+    zstbi: ZStbi,
 ) !SolShapeExample {
-    const dep_zstbi = b.dependency("zstbi", .{});
-
-    if (config.target.result.cpu.arch.isWasm()) {
-        const emsdk_incl_path = sol.dep_emsdk.path("upstream/emscripten/cache/sysroot/include");
-        dep_zstbi.module("root").addIncludePath(emsdk_incl_path);
-    }
-
     const mod_main = b.createModule(.{
         .root_source_file = b.path("examples/shape/shape_example.zig"),
         .target = config.target,
@@ -39,7 +35,7 @@ pub fn init(
             .{ .name = "sol_camera", .module = sol_camera.module },
             .{ .name = "sol_shape", .module = sol_shape.module },
             .{ .name = "sol_fetch", .module = sol_fetch.module },
-            .{ .name = "zstbi", .module = dep_zstbi.module("root") },
+            .{ .name = "zstbi", .module = zstbi.module },
         },
     });
 

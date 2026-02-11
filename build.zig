@@ -8,6 +8,7 @@ const cimgui = @import("cimgui");
 
 const Config = @import("src/build/Config.zig");
 const Tracy = @import("src/build/Tracy.zig");
+const ZStbi = @import("src/build/ZStbi.zig");
 
 const Sol = @import("src/build/Sol.zig");
 const SolMath = @import("src/build/SolMath.zig");
@@ -17,6 +18,8 @@ const SolCamera = @import("src/build/SolCamera.zig");
 const SolShape = @import("src/build/SolShape.zig");
 const SolText = @import("src/build/SolText.zig");
 const SolFetch = @import("src/build/SolFetch.zig");
+
+const SolGltf = @import("src/build/SolGltf.zig");
 
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -33,6 +36,8 @@ pub fn build(b: *Build) !void {
     const sol_math: SolMath = try .init(b, config);
 
     // Extra
+    const zstbi: ZStbi = try .init(b, config, sol);
+
     const sol_camera = try SolCamera.init(
         b,
         config,
@@ -63,6 +68,13 @@ pub fn build(b: *Build) !void {
         sol,
     );
 
+    const sol_gltf: SolGltf = try .init(
+        b,
+        config,
+        sol,
+        zstbi,
+    );
+
     if (opt_examples) {
         const TextExample = @import("src/build/SolTextExample.zig");
         const text_example: TextExample = try .init(
@@ -82,11 +94,25 @@ pub fn build(b: *Build) !void {
             sol_camera,
             sol_shape,
             sol_fetch,
+            zstbi,
+        );
+
+        const GltfViewer = @import("src/build/GltfViewer.zig");
+        const gltf_viewer: GltfViewer = try .init(
+            b,
+            config,
+            sol,
+            sol_math,
+            sol_camera,
+            sol_gltf,
+            sol.shader_builder,
+            zstbi,
         );
 
         const examples_modules = [_]struct { name: []const u8, mod: *Build.Module }{
             .{ .name = "ex_text", .mod = text_example.module },
             .{ .name = "ex_shape", .mod = shape_example.module },
+            .{ .name = "gltf_viewer", .mod = gltf_viewer.module },
         };
 
         for (examples_modules) |ex| {

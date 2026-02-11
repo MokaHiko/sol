@@ -33,6 +33,8 @@ pub const Input = @import("input/Input.zig");
 // the raw sokol.gfx API directly.
 // TODO: Remove this once sokol is fully wrapped by our abstraction.
 pub const gfx_native = sokol.gfx;
+// TODO: Remove
+pub const glue = sglue;
 pub const gfx = @import("gfx/gfx.zig");
 
 pub const Error = gfx.Error;
@@ -46,4 +48,13 @@ pub fn windowWidth() i32 {
 
 pub fn windowHeight() i32 {
     return sapp.height();
+}
+
+/// Get an averaged/smoothed frame duration in seconds t in ms
+pub fn deltaTime() f64 {
+    return sapp.frameDuration();
+}
+
+pub fn quit() void {
+    sapp.quit();
 }
