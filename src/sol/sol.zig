@@ -28,6 +28,9 @@ pub const log = @import("logging/logger.zig").Logger(.{ .level = .Debug });
 // Built in modules
 pub const Input = @import("input/Input.zig");
 
+pub const Event = @import("event/Event.zig");
+pub const EventQueue = @import("event/EventQueue.zig");
+
 // Temporary alias to the underlying gfx implementation.
 // The graphics abstraction layer is still incomplete, so some libraries may need to access
 // the raw sokol.gfx API directly.

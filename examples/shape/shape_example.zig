@@ -40,7 +40,13 @@ const StreamingShapes = struct {
         main_camera: *MainCamera,
         shape_renderer: *ShapeRenderer,
     ) !StreamingShapes {
+        // TODO: Remove
         const fetch_request = try sol_fetch.request(gpa, .{
+            .method = .GET,
+            .uri = "https://picsum.photos/512/512",
+        });
+
+        _ = try sol_fetch.requestEx(.{
             .method = .GET,
             .uri = "https://picsum.photos/512/512",
         });
@@ -73,6 +79,15 @@ const StreamingShapes = struct {
     }
 
     pub fn frame(self: *StreamingShapes) void {
+        var iter = self.eq.iter(sol_fetch.EventIds);
+
+        while (iter.next()) |it| {
+            const id = it.id;
+            const ev = it.ev;
+        }
+
+        if (true) return;
+
         const input = self.input;
         const camera = self.main_camera.camera();
         const shape = self.shape_renderer;

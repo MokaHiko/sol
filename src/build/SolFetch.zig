@@ -12,7 +12,9 @@ pub fn init(b: *std.Build, config: Config, sol: Sol) !SolFetch {
     const mod = b.addModule("sol_fetch", .{
         .target = config.target,
         .root_source_file = b.path("src/sol_fetch/fetch.zig"),
-        .imports = &.{},
+        .imports = &.{
+            .{ .name = "sol", .module = sol.module },
+        },
     });
 
     if (config.target.result.cpu.arch.isWasm()) {
