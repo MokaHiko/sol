@@ -11,6 +11,7 @@ pub const ImageView = switch (builtin.os.tag) {
 pub const Format = enum {
     R8,
     RGBA8,
+    RGBA16,
     DEPTH_STENCIL,
 
     /// Returns the size of the format in bytes.
@@ -18,6 +19,7 @@ pub const Format = enum {
         switch (self) {
             .R8 => return 1,
             .RGBA8 => return 4,
+            .RGBA16 => return 8,
             .DEPTH_STENCIL => return 0,
         }
     }

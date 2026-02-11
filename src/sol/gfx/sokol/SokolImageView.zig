@@ -5,7 +5,8 @@ const sg = sokol.gfx;
 
 const gfx = @import("../gfx.zig");
 
-_view: sg.View = .{},
+/// Native handle.
+view: sg.View = .{},
 
 pub const Options = struct {};
 
@@ -13,19 +14,19 @@ pub fn init(img: gfx.Image, opts: Options) gfx.image.Error!ImageView {
     _ = opts;
 
     return .{
-        ._view = sg.makeView(.{
+        .view = sg.makeView(.{
             .texture = .{
-                .image = img._image,
+                .image = img.native,
             },
         }),
     };
 }
 
 pub fn deinit(self: *ImageView) void {
-    sg.destroyView(self._view);
+    sg.destroyView(self.view);
 }
 
 /// Returns the native gpu handle of the view as u32.
-pub inline fn gpuHandle(self: ImageView) u32 {
-    return self._view.id;
+pub inline fn gpuHandle(self: ImageView) sg.View {
+    return self.view;
 }

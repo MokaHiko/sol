@@ -1,4 +1,4 @@
-const Image = @This();
+const SokolImage = @This();
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
@@ -8,13 +8,13 @@ const sg = sokol.gfx;
 
 const gfx = @import("../gfx.zig");
 
-_image: sg.Image = .{},
+native: sg.Image = .{},
 
 /// On success, returns an `Image` instance.
 /// Returns `gfx.image.Error!Image` on failure.
 /// For attachments use `Image.writeAll`.
 /// For storage images use `Image.writeAll.allocate` then `sol.Image.writeAll`.
-pub fn init(data: []const u8, w: i32, h: i32, format: gfx.image.Format, opts: gfx.image.Options) gfx.image.Error!Image {
+pub fn init(data: []const u8, w: i32, h: i32, format: gfx.image.Format, opts: gfx.image.Options) gfx.image.Error!SokolImage {
     // Images WITHOUT these options cannot be assigned initial data.
     //
     // Must be called with `Image.allocate`.
@@ -38,15 +38,15 @@ pub fn init(data: []const u8, w: i32, h: i32, format: gfx.image.Format, opts: gf
     if (opts.immutable) {
         // .data[face][mip_level]
         desc.data.subimage[0][0] = sg.asRange(data);
-        return .{ ._image = sg.makeImage(desc) };
+        return .{ .native = sg.makeImage(desc) };
     }
 
     // Sokol does not allow passing data to dynamic images on creation
-    const image = Image{ ._image = sg.makeImage(desc) };
+    const image = SokolImage{ .native = sg.makeImage(desc) };
 
     var update = sg.ImageData{};
     update.subimage[0][0] = sg.asRange(data);
-    sg.updateImage(image._image, update);
+    sg.updateImage(image.native, update);
 
     return image;
 }
@@ -56,7 +56,7 @@ pub fn init(data: []const u8, w: i32, h: i32, format: gfx.image.Format, opts: gf
 /// Returns `gfx.image.Error!Image` on failure. On success, returns an `Image` instance.
 ///
 /// May allocate scratch memory using allocator passed for certain image usages.
-pub fn allocate(scratch_allocator: Allocator, w: i32, h: i32, format: gfx.image.Format, opts: gfx.image.Options) gfx.image.Error!Image {
+pub fn allocate(scratch_allocator: Allocator, w: i32, h: i32, format: gfx.image.Format, opts: gfx.image.Options) gfx.image.Error!SokolImage {
     // Images WITHOUT these options must assign initial data and is equivalent to calling init with [w * h * channel]u8 = zeros
     if (!opts.usage.color_attachment and !opts.usage.depth_stencil_attachment and !opts.usage.storage_image and opts.immutable) {
         const data = try scratch_allocator.alloc(u8, @as(usize, @intCast(w * h)) * format.toSize());
@@ -79,11 +79,11 @@ pub fn allocate(scratch_allocator: Allocator, w: i32, h: i32, format: gfx.image.
         },
     };
 
-    return .{ ._image = sg.makeImage(desc) };
+    return .{ .native = sg.makeImage(desc) };
 }
 
-pub fn isValid(self: Image) bool {
-    const state = sg.queryImageState(self._image);
+pub fn isValid(self: SokolImage) bool {
+    const state = sg.queryImageState(self.native);
     switch (state) {
         .INVALID, .INITIAL => return false,
         else => return true,
@@ -91,12 +91,12 @@ pub fn isValid(self: Image) bool {
 }
 
 /// Returns the allocated capacity of the image in bytes.
-pub fn queryCapacity(self: Image) usize {
+pub fn queryCapacity(self: SokolImage) usize {
     if (!self.isValid()) {
         return 0;
     }
 
-    const desc = sg.queryImageDesc(self._image);
+    const desc = sg.queryImageDesc(self.native);
 
     const format = asFormat(desc.pixel_format);
     const dim_size: usize = @intCast(desc.width * desc.height);
@@ -104,12 +104,12 @@ pub fn queryCapacity(self: Image) usize {
     return dim_size * format.toSize();
 }
 
-pub fn queryFormat(self: Image) gfx.image.Format {
+pub fn queryFormat(self: SokolImage) gfx.image.Format {
     if (!self.isValid()) {
         return .NONE;
     }
 
-    const desc = sg.queryImageDesc(self._image);
+    const desc = sg.queryImageDesc(self.native);
     return asFormat(desc.pixel_format);
 }
 
@@ -117,12 +117,12 @@ pub fn queryFormat(self: Image) gfx.image.Format {
 ///
 /// `data.len` must be equal to the image's capacity (see `Image.queryCapacity`).
 /// The image must have `color_attachment` or `storage_image` usage enabled.
-pub inline fn writeAll(self: *Image, data: []const u8) gfx.image.Error!void {
+pub inline fn writeAll(self: *SokolImage, data: []const u8) gfx.image.Error!void {
     if (!self.isValid()) {
         return gfx.image.Error.InvalidResourceHandle;
     }
 
-    const desc = sg.queryImageDesc(self._image);
+    const desc = sg.queryImageDesc(self.native);
 
     const format = asFormat(desc.pixel_format);
     const dim_size: usize = @intCast(desc.width * desc.height);
@@ -135,21 +135,16 @@ pub inline fn writeAll(self: *Image, data: []const u8) gfx.image.Error!void {
     var image_data = sg.ImageData{};
     image_data.subimage[0][0] = sg.asRange(data);
 
-    sg.updateImage(self._image, image_data);
-}
-
-/// Returns the native gpu handle of the image as u64.
-pub inline fn gpuHandle(self: Image) u64 {
-    return self._image.id;
+    sg.updateImage(self.native, image_data);
 }
 
 /// Frees and invalidates image.
-pub fn deinit(self: *Image) void {
+pub fn deinit(self: *SokolImage) void {
     if (self.isValid()) {
-        sg.destroyImage(self._image);
+        sg.destroyImage(self.native);
     }
 
-    self._image = .{ .id = 0 };
+    self.native = .{ .id = 0 };
 }
 
 /// Converts `sol.gfx.ImageFormat` to `sokol.gfx.PixelFormat`.
@@ -157,6 +152,7 @@ fn asPixelFormat(format: gfx.image.Format) sg.PixelFormat {
     switch (format) {
         .R8 => return .R8,
         .RGBA8 => return .RGBA8,
+        .RGBA16 => return .RGBA16,
         .DEPTH_STENCIL => return .DEPTH_STENCIL,
     }
 }
@@ -166,6 +162,12 @@ fn asFormat(format: sg.PixelFormat) gfx.image.Format {
     switch (format) {
         .R8 => return .R8,
         .RGBA8 => return .RGBA8,
+        .RGBA16 => return .RGBA16,
         .DEPTH_STENCIL => return .DEPTH_STENCIL,
     }
+}
+
+/// Returns the native gpu handle of the view as u32.
+pub inline fn gpuHandle(self: SokolImage) u32 {
+    return self.native.id;
 }
