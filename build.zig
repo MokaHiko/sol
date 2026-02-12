@@ -19,8 +19,6 @@ const SolShape = @import("src/build/SolShape.zig");
 const SolText = @import("src/build/SolText.zig");
 const SolFetch = @import("src/build/SolFetch.zig");
 
-const SolGltf = @import("src/build/SolGltf.zig");
-
 pub fn build(b: *Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -68,13 +66,6 @@ pub fn build(b: *Build) !void {
         sol,
     );
 
-    const sol_gltf: SolGltf = try .init(
-        b,
-        config,
-        sol,
-        zstbi,
-    );
-
     if (opt_examples) {
         const TextExample = @import("src/build/SolTextExample.zig");
         const text_example: TextExample = try .init(
@@ -104,7 +95,6 @@ pub fn build(b: *Build) !void {
             sol,
             sol_math,
             sol_camera,
-            sol_gltf,
             sol.shader_builder,
             zstbi,
         );
