@@ -97,8 +97,7 @@ const Mesh = struct {
     }
 };
 
-// const Gltf = @import("Gltf.zig");
-const Gltf = @import("sol_gltf").Gltf;
+const Gltf = @import("zigltf").Gltf;
 const zstbi = @import("zstbi");
 
 pub const LinearSampler = struct {
@@ -533,8 +532,12 @@ const GltfViewer = struct {
         g_pass: *GBufferPass,
         blit_pass: *BlitPass,
     ) !GltfViewer {
-        const gltf = try Gltf.initFromPath(gpa, "2.0/DamagedHelmet/glTF/DamagedHelmet.gltf");
-        // const gltf = try Gltf.initFromPath(gpa, "2.0/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf");
+        const raw = try sol.fs.read(gpa, "2.0/DamagedHelmet/glTF/DamagedHelmet.gltf", .{});
+        defer gpa.free(raw);
+
+        // const gltf = try Gltf.init(gpa, raw, .{ .relative_directory = "2.0/DamagedHelmet/glTF" });
+        const gltf = try Gltf.init(gpa, raw, .{ .relative_directory = "2.0/DamagedHelmet/glTF" });
+        // const gltf = try Gltf.init(gpa, "2.0/MetalRoughSpheres/glTF/MetalRoughSpheres.gltf");
 
         zstbi.init(gpa);
         defer zstbi.deinit();

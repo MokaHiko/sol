@@ -23,6 +23,10 @@
             .url = "git+https://github.com/tealsnow/zig-tracy#5bc72385c72e7dbea5e51a8ea21d63205dc9351c",
             .hash = "tracy-0.0.10-Dn49m2RUAAAdadZoiLef0OCmVdUyeu5GmEzXoTAokcZl",
         },
+        .zigltf = .{
+            .url = "git+https://github.com/MokaHiko/zigltf#1e3953f165c2fa268e316abcef81d4674f4ef1b9",
+            .hash = "zigltf-0.0.0-_eICSIfEAAB276WAHSK21-Km2qeOc_oNYrRD-BdKk311",
+        },
     },
     .paths = .{""},
 }
