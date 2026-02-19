@@ -6,11 +6,11 @@ pub const Error = error{
     SingularMatrix,
 };
 
-pub const Mat4 = struct {
-    _m: [4]@Vector(4, f32),
+pub const Mat4 = union {
+    m: [4]@Vector(4, f32),
 
     /// Returns the identity matrix.
-    pub const identity: Mat4 = .{ ._m = .{
+    pub const identity: Mat4 = .{ .m = .{
         .{ 1, 0, 0, 0 },
         .{ 0, 1, 0, 0 },
         .{ 0, 0, 1, 0 },
@@ -18,7 +18,7 @@ pub const Mat4 = struct {
     } };
 
     /// Returns a matrix filled with only zeros.
-    pub const zero: Mat4 = .{ ._m = .{
+    pub const zero: Mat4 = .{ .m = .{
         .{ 0, 0, 0, 0 },
         .{ 0, 0, 0, 0 },
         .{ 0, 0, 0, 0 },
@@ -26,26 +26,26 @@ pub const Mat4 = struct {
     } };
 
     pub fn translate(p: Vec3) Mat4 {
-        return .{ ._m = [4]@Vector(4, f32){
+        return .{ .m = [4]@Vector(4, f32){
             .{ 1, 0, 0, 0 },
             .{ 0, 1, 0, 0 },
             .{ 0, 0, 1, 0 },
-            .{ p._v[0], p._v[1], p._v[2], 1 },
+            .{ p.v[0], p.v[1], p.v[2], 1 },
         } };
     }
 
     pub fn scale(s: Vec3) Mat4 {
-        return .{ ._m = [4]@Vector(4, f32){
-            .{ s._v[0], 0, 0, 0 },
-            .{ 0, s._v[1], 0, 0 },
-            .{ 0, 0, s._v[2], 0 },
+        return .{ .m = [4]@Vector(4, f32){
+            .{ s.v[0], 0, 0, 0 },
+            .{ 0, s.v[1], 0, 0 },
+            .{ 0, 0, s.v[2], 0 },
             .{ 0, 0, 0, 1 },
         } };
     }
 
-    pub fn ortho_rh(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) Mat4 {
+    pub fn orthoRH(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) Mat4 {
         return .{
-            ._m = [4]@Vector(4, f32){
+            .m = [4]@Vector(4, f32){
                 .{ 2 / (r - l), 0, 0, 0 },
                 .{ 0, 2 / (t - b), 0, 0 },
                 .{ 0, 0, 1 / (f - n), 0 },
@@ -62,23 +62,23 @@ pub const Mat4 = struct {
         var result = Mat4.zero;
 
         for (0..4) |c| {
-            const rcol = right._m[c];
+            const rcol = right.m[c];
 
-            result._m[c] =
-                self._m[0] * @Vector(4, f32){ rcol[0], rcol[0], rcol[0], rcol[0] } +
-                self._m[1] * @Vector(4, f32){ rcol[1], rcol[1], rcol[1], rcol[1] } +
-                self._m[2] * @Vector(4, f32){ rcol[2], rcol[2], rcol[2], rcol[2] } +
-                self._m[3] * @Vector(4, f32){ rcol[3], rcol[3], rcol[3], rcol[3] };
+            result.m[c] =
+                self.m[0] * @Vector(4, f32){ rcol[0], rcol[0], rcol[0], rcol[0] } +
+                self.m[1] * @Vector(4, f32){ rcol[1], rcol[1], rcol[1], rcol[1] } +
+                self.m[2] * @Vector(4, f32){ rcol[2], rcol[2], rcol[2], rcol[2] } +
+                self.m[3] * @Vector(4, f32){ rcol[3], rcol[3], rcol[3], rcol[3] };
         }
 
         return result;
     }
 
     pub fn mul_vec(self: Mat4, right: Vec4) Vec4 {
-        return Vec4{ ._v = self._m[0] * @as(@Vector(4, f32), @splat(right._v[0])) +
-            self._m[1] * @as(@Vector(4, f32), @splat(right._v[1])) +
-            self._m[2] * @as(@Vector(4, f32), @splat(right._v[2])) +
-            self._m[3] * @as(@Vector(4, f32), @splat(right._v[3])) };
+        return Vec4{ .v = self.m[0] * @as(@Vector(4, f32), @splat(right.v[0])) +
+            self.m[1] * @as(@Vector(4, f32), @splat(right.v[1])) +
+            self.m[2] * @as(@Vector(4, f32), @splat(right.v[2])) +
+            self.m[3] * @as(@Vector(4, f32), @splat(right.v[3])) };
     }
 
     /// Returns the element at the given coordinates (row, col).
@@ -92,14 +92,14 @@ pub const Mat4 = struct {
             return -1;
         }
 
-        return self._m[col][row];
+        return self.m[col][row];
     }
 
     /// Sets the element at the given coordinates (row, col) = `val`.
     /// The matrix is stored in column-major order, so internally this reads
     /// from `self._m[col][row] = val`.
     pub fn set(self: *Mat4, coords: struct { u64, u64 }, val: f32) void {
-        self._m[coords.@"1"][coords.@"0"] = val;
+        self.m[coords.@"1"][coords.@"0"] = val;
     }
 
     /// Returns the transpose of the matrix.
@@ -108,7 +108,7 @@ pub const Mat4 = struct {
 
         for (0..4) |c| {
             for (0..4) |r| {
-                result._m[r][c] = self._m[c][r];
+                result.m[r][c] = self.m[c][r];
             }
         }
 
@@ -305,7 +305,7 @@ pub const Mat3 = struct {
         @Vector(3, f32){ 0, 0, 1 },
     } };
 
-    pub const zero: Mat4 = .{ ._m = .{
+    pub const zero: Mat4 = .{ .m = .{
         @Vector(3, f32){ 0, 0, 0 },
         @Vector(3, f32){ 0, 0, 0 },
         @Vector(3, f32){ 0, 0, 0 },
@@ -316,15 +316,15 @@ pub const Mat3 = struct {
             @Vector(4, f32){ 1, 0, 0, 0 },
             @Vector(4, f32){ 0, 1, 0, 0 },
             @Vector(4, f32){ 0, 0, 1, 0 },
-            @Vector(4, f32){ p._v[0], p._v[1], p._v[2], 1 },
+            @Vector(4, f32){ p.v[0], p.v[1], p.v[2], 1 },
         } };
     }
 
     pub fn scale(s: Vec2) Mat4 {
-        return .{ ._m = [4]@Vector(4, f32){
-            @Vector(3, f32){ s._v[0], 0, 0 },
-            @Vector(3, f32){ 0, s._v[1], 0 },
-            @Vector(3, f32){ 0, 0, s._v[2] },
+        return .{ .m = [4]@Vector(4, f32){
+            @Vector(3, f32){ s.v[0], 0, 0 },
+            @Vector(3, f32){ 0, s.v[1], 0 },
+            @Vector(3, f32){ 0, 0, s.v[2] },
         } };
     }
 
@@ -338,7 +338,7 @@ pub const Mat3 = struct {
         for (0..3) |c| {
             const rcol = right._m[c];
 
-            result._m[c] =
+            result.m[c] =
                 self._m[0] * @Vector(3, f32){ rcol[0], rcol[0], rcol[0] } +
                 self._m[1] * @Vector(3, f32){ rcol[1], rcol[1], rcol[1] } +
                 self._m[2] * @Vector(3, f32){ rcol[2], rcol[2], rcol[2] };
@@ -348,8 +348,8 @@ pub const Mat3 = struct {
     }
 
     pub fn mul_vec(self: Mat3, right: Vec3) Vec3 {
-        return Vec3{ ._v = self._m[0] * @as(@Vector(3, f32), @splat(right._v[0])) +
-            self._m[1] * @as(@Vector(3, f32), @splat(right._v[1])) +
-            self._m[2] * @as(@Vector(3, f32), @splat(right._v[2])) };
+        return Vec3{ .v = self._m[0] * @as(@Vector(3, f32), @splat(right.v[0])) +
+            self._m[1] * @as(@Vector(3, f32), @splat(right.v[1])) +
+            self._m[2] * @as(@Vector(3, f32), @splat(right.v[2])) };
     }
 };

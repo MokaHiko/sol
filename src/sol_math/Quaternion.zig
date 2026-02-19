@@ -7,40 +7,40 @@ const Vec3 = @import("vector.zig").Vec3;
 const Vec4 = @import("vector.zig").Vec4;
 const Mat4 = @import("matrix.zig").Mat4;
 
-_v: @Vector(4, f32),
+v: @Vector(4, f32),
 
 pub fn new(x: f32, y: f32, z: f32, w: f32) Quat {
-    return .{ ._v = @Vector(4, f32){ x, y, z, w } };
+    return .{ .v = @Vector(4, f32){ x, y, z, w } };
 }
 
 pub fn identity() Quat {
-    return .{ ._v = @Vector(4, f32){ 0, 0, 0, 1.0 } };
+    return .{ .v = @Vector(4, f32){ 0, 0, 0, 1.0 } };
 }
 
 pub fn asVec4(self: Quat) Vec4 {
-    return Vec4{ ._v = self._v };
+    return Vec4{ .v = self.v };
 }
 
 pub fn normalize(self: Quat) !Quat {
     const v4 = try self.asVec4().normalize();
-    return .{ ._v = v4._v };
+    return .{ .v = v4.v };
 }
 
 pub fn fromAxisAngle(axis: Vec3, radians: f32) Quat {
     const rfactor = math.cos(radians / 2.0);
     const ifactor = math.sin(radians / 2.0);
-    return .{ ._v = @Vector(4, f32){ ifactor * axis._v[0], ifactor * axis._v[1], ifactor * axis._v[1], rfactor } };
+    return .{ .v = @Vector(4, f32){ ifactor * axis.v[0], ifactor * axis.v[1], ifactor * axis.v[1], rfactor } };
 }
 
 pub fn mul(self: Quat, other: Quat) Quat {
-    return .{ ._v = @Vector(4, f32){
-        self._v[3] * other._v[0] + self._v[0] * other._v[3] + self._v[1] * other._v[2] - self._v[2] * other._v[1],
-        self._v[3] * other._v[1] - self._v[0] * other._v[2] + self._v[1] * other._v[3] + self._v[2] * other._v[0],
-        self._v[3] * other._v[2] + self._v[0] * other._v[1] - self._v[1] * other._v[0] + self._v[2] * other._v[0],
-        self._v[3] * other._v[3] - self._v[0] * other._v[0] - self._v[1] * other._v[1] - self._v[2] * other._v[2],
+    return .{ .v = @Vector(4, f32){
+        self.v[3] * other.v[0] + self.v[0] * other.v[3] + self.v[1] * other.v[2] - self.v[2] * other.v[1],
+        self.v[3] * other.v[1] - self.v[0] * other.v[2] + self.v[1] * other.v[3] + self.v[2] * other.v[0],
+        self.v[3] * other.v[2] + self.v[0] * other.v[1] - self.v[1] * other.v[0] + self.v[2] * other.v[0],
+        self.v[3] * other.v[3] - self.v[0] * other.v[0] - self.v[1] * other.v[1] - self.v[2] * other.v[2],
     } };
 }
 
 pub fn scale(self: Quat, s: f32) Quat {
-    return .{ ._v = self._v * @as(@Vector(4, f32), @splat(s)) };
+    return .{ .v = self.v * @as(@Vector(4, f32), @splat(s)) };
 }

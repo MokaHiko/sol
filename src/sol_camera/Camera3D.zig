@@ -52,7 +52,7 @@ pub fn setOrthogonal(self: *Camera3D, size: f32, z_near: f32, z_far: f32) void {
     const half_width: f32 = width / 2.0;
     const half_height: f32 = height / 2.0;
 
-    self.proj = Mat4.ortho_rh(
+    self.proj = Mat4.orthoRH(
         -half_width,
         half_width,
         -half_height,
@@ -64,8 +64,8 @@ pub fn setOrthogonal(self: *Camera3D, size: f32, z_near: f32, z_far: f32) void {
 
 pub fn calcView(self: *Camera3D) void {
     self.view = Mat4.translate(Vec3.new(
-        -self.position._v[0],
-        -self.position._v[1],
-        -self.position._v[2],
+        -self.position.v[0],
+        -self.position.v[1],
+        -self.position.v[2],
     ));
 }
