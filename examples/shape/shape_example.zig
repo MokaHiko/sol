@@ -26,11 +26,10 @@ const StreamingShapes = struct {
     main_camera: *MainCamera,
     shape_renderer: *ShapeRenderer,
 
-    shape_variants: []ShapeVariant,
+    variants: []ShapeVariant,
 
-    img: gfx.Image = .{},
-    view: gfx.ImageView = .{},
     fetch_request: ?*sol_fetch.Request,
+    texture: ?gfx.Texture = null,
 
     zoom: f32 = 1.0,
 
@@ -68,15 +67,23 @@ const StreamingShapes = struct {
             .shape_renderer = shape_renderer,
 
             .fetch_request = fetch_request,
-            .shape_variants = shape_variants,
+            .variants = shape_variants,
         };
     }
 
     pub fn frame(self: *StreamingShapes) void {
+        if (self.texture == null) {
+            self.texture = self.loadTexture() catch |e| blk: {
+                sol.log.err("Error {s}", .{@errorName(e)});
+                break :blk null;
+            };
+        }
+
         const input = self.input;
         const camera = self.main_camera.camera();
         const shape = self.shape_renderer;
 
+        // camera zoom controls
         if (input.isKeyDown(.LEFT_CONTROL) and input.isKeyDown(.EQUAL)) {
             self.zoom += 0.01;
             camera.setOrthogonal(self.zoom, 0.1, 1.0);
@@ -91,6 +98,7 @@ const StreamingShapes = struct {
             camera.setOrthogonal(self.zoom, 0.1, 1.0);
         }
 
+        // camera pan controls
         if (input.isKeyDown(.UP)) {
             camera.position = camera.position.add(.new(0.0, 0.1, 0));
         }
@@ -106,40 +114,7 @@ const StreamingShapes = struct {
         if (input.isKeyDown(.LEFT)) {
             camera.position = camera.position.sub(.new(0.1, 0, 0));
         }
-
-        // Check if request is valid and finished.
-        if (self.fetch_request) |req| {
-            if (req.isSuccess()) {
-                zstbi.init(sol.allocator);
-                zstbi.setFlipVerticallyOnLoad(true);
-                defer zstbi.deinit();
-
-                var raw = zstbi.Image.loadFromMemory(
-                    req.getData() orelse @panic("Fetch payload was empty!"),
-                    4,
-                ) catch @panic("Failed to load image data!");
-                defer raw.deinit();
-
-                self.img = gfx.Image.init(
-                    raw.data,
-                    @intCast(raw.width),
-                    @intCast(raw.height),
-                    .RGBA8,
-                    .{},
-                ) catch @panic("Failed to initialize image!");
-
-                self.view = gfx.ImageView.init(
-                    self.img,
-                    .{},
-                ) catch @panic("Failed to initialize image view");
-
-                // Invalidate request.
-                req.deinit(sol.allocator);
-                self.fetch_request = null;
-            }
-        }
-
-        const s: i32 = @intFromFloat(@sqrt(@as(f32, @floatFromInt(self.shape_variants.len))));
+        const s: i32 = @intFromFloat(@sqrt(@as(f32, @floatFromInt(self.variants.len))));
         const shalf: i32 = @divFloor(s, 2);
         const r: i32 = 1;
 
@@ -148,7 +123,7 @@ const StreamingShapes = struct {
             var x: i32 = -shalf;
             while (x < shalf) : (x += 1) {
                 const shape_idx: usize = @intCast((y + shalf) * s + (x + shalf));
-                switch (self.shape_variants[shape_idx]) {
+                switch (self.variants[shape_idx]) {
                     .GreenCircle => {
                         shape.drawCircle(x * r * 2, y * r * 2, 1, .{
                             .tint = gfx.color.RGBA.green.asU32(),
@@ -169,33 +144,66 @@ const StreamingShapes = struct {
                         });
                     },
                     .TexturedCircle => {
-                        if (self.img.isValid()) {
-                            shape.drawCircle(x * r * 2, y * r * 2, 1, .{
-                                .image_view = self.view,
-                            });
-                        }
+                        const texture = self.texture orelse continue;
+                        shape.drawCircle(x * r * 2, y * r * 2, 1, .{
+                            .image_view = texture.view,
+                        });
                     },
                 }
             }
         }
     }
 
+    pub fn loadTexture(self: *StreamingShapes) !?gfx.Texture {
+        // check state of request
+        var req = self.fetch_request orelse return null;
+        if (!req.isSuccess()) return null;
+
+        // deinit/free request after use
+        defer {
+            req.deinit(sol.allocator);
+            self.fetch_request = null;
+        }
+
+        zstbi.init(sol.allocator);
+        zstbi.setFlipVerticallyOnLoad(true);
+        defer zstbi.deinit();
+
+        var raw = try zstbi.Image.loadFromMemory(
+            req.getData() orelse @panic("Fetch payload was empty!"),
+            4,
+        );
+        defer raw.deinit();
+
+        return try .init(
+            try .init(
+                raw.data,
+                @intCast(raw.width),
+                @intCast(raw.height),
+                .RGBA8,
+                .{},
+            ),
+            try .init(.{}),
+            .{
+                .destroy_image = true,
+                .destroy_sampler = true,
+            },
+        );
+    }
+
     pub fn deinit(self: *StreamingShapes) void {
-        self.gpa.free(self.shape_variants);
+        self.gpa.free(self.variants);
 
         // Catch early exit with incomplete fetch
         if (self.fetch_request) |f| {
             f.deinit(sol.allocator);
         }
 
-        self.view.deinit();
-        self.img.deinit();
+        if (self.texture) |*texture| {
+            texture.deinit();
+        }
     }
 };
-
-pub export fn sol_hello() void {
-    sol.log.err("Hello from sol using js?", .{});
-}
 
 pub fn main() !void {
     var app = try sol.App.create(

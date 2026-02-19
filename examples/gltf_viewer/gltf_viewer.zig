@@ -121,7 +121,7 @@ pub const DefaultWhiteTexture = struct {
     pub fn init(linear_sampler: LinearSampler) !DefaultWhiteTexture {
         const rgba_white = [4]u8{ 255, 255, 255, 255 };
         const img: gfx.Image = try .init(&rgba_white, 1, 1, .RGBA8, .{});
-        const texture: gfx.Texture = try .init(img, linear_sampler.sampler);
+        const texture: gfx.Texture = try .init(img, linear_sampler.sampler, .{});
 
         return .{ .img = img, .texture = texture };
     }
@@ -187,7 +187,7 @@ pub const GColorAttachment = struct {
 
         const color_attachment: gfx.RenderAttachment = try .init(color, .Color);
 
-        const color_texture: gfx.Texture = try .init(color, linearSampler.sampler);
+        const color_texture: gfx.Texture = try .init(color, linearSampler.sampler, .{});
 
         return .{
             .image = color,
@@ -601,7 +601,7 @@ const GltfViewer = struct {
         for (gltf.textures, 0..) |texture, i| {
             // textures[i] = try .init(images[texture.source], if (texture.sampler) |idx| samplers[idx] else linear_sampler.sampler);
             _ = linear_sampler;
-            textures[i] = try .init(images[texture.source], if (texture.sampler) |idx| samplers[idx] else unreachable);
+            textures[i] = try .init(images[texture.source], if (texture.sampler) |idx| samplers[idx] else unreachable, .{});
         }
 
         const materials = try gpa.alloc(PBRMaterial, gltf.materials.len);

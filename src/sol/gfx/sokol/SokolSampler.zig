@@ -5,7 +5,7 @@ const sg = sokol.gfx;
 
 pub const Options = struct {};
 
-sampler: sg.Sampler,
+sampler: sg.Sampler = .{},
 
 pub fn init(opts: Options) !SokolSampler {
     _ = opts;
