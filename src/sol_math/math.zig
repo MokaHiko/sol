@@ -1,3 +1,6 @@
+pub const pi = @import("std").math.pi;
+pub const tan = @import("std").math.tan;
+
 const vector = @import("vector.zig");
 pub const Vec2 = vector.Vec2;
 pub const Vec3 = vector.Vec3;

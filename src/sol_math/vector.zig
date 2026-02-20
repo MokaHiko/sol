@@ -35,6 +35,16 @@ pub const Vec3 = struct {
         return .{ .v = @Vector(3, f32){ x, y, z } };
     }
 
+    pub fn normalize(self: Vec3) !Vec3 {
+        const l = self.len();
+
+        if (l == 0.0) {
+            return error.DivideByZero;
+        }
+
+        return .{ .v = self.v * @as(@Vector(3, f32), @splat(1.0 / l)) };
+    }
+
     pub fn add(self: Vec3, other: Vec3) Vec3 {
         return .{ .v = self.v + other.v };
     }
