@@ -43,6 +43,8 @@ pub const Float2 = struct { x: f32, y: f32 };
 eq: *EventQueue,
 keys: [key_count]bool,
 mouse_btns: [mouse_button_count]bool,
+
+lmouse_pos: Float2,
 mouse_pos: Float2,
 mouse_delta: Float2,
 
@@ -58,12 +60,18 @@ pub fn init(eq: *EventQueue) !Input {
         .keys = keys,
         .mouse_btns = mouse_btns,
         .mouse_pos = .{ .x = 0, .y = 0 },
+        .lmouse_pos = .{ .x = 0, .y = 0 },
         .mouse_delta = .{ .x = 0, .y = 0 },
     };
 }
 
 pub fn frame(self: *Input) void {
     var iter = self.eq.iter(EventIds);
+
+    self.lmouse_pos = .{
+        .x = self.mouse_pos.x,
+        .y = self.mouse_pos.y,
+    };
 
     while (iter.next()) |it| {
         const id = it.id;
@@ -77,11 +85,6 @@ pub fn frame(self: *Input) void {
             .MouseUp => self.mouse_btns[@as(usize, @intCast(ev.*.data.int))] = false,
 
             .MouseMove => {
-                self.mouse_delta = .{
-                    .x = ev.*.data.float2.@"0" - self.mouse_pos.x,
-                    .y = ev.*.data.float2.@"1" - self.mouse_pos.y,
-                };
-
                 self.mouse_pos = .{
                     .x = ev.*.data.float2.@"0",
                     .y = ev.*.data.float2.@"1",
@@ -93,6 +96,12 @@ pub fn frame(self: *Input) void {
 
         ev.*.state = .Handled;
     }
+
+    // store deltas
+    self.mouse_delta = .{
+        .x = self.mouse_pos.x - self.lmouse_pos.x,
+        .y = self.mouse_pos.y - self.lmouse_pos.y,
+    };
 }
 
 /// Returns whether 'key' is being pressed.
