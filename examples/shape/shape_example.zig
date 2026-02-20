@@ -39,11 +39,13 @@ const StreamingShapes = struct {
         main_camera: *MainCamera,
         shape_renderer: *ShapeRenderer,
     ) !StreamingShapes {
+        // fetch image
         const fetch_request = try sol_fetch.request(gpa, .{
             .method = .GET,
             .uri = "https://picsum.photos/512/512",
         });
 
+        // randomly generate shape variants
         var prng: std.Random.DefaultPrng = .init(blk: {
             var seed: u64 = undefined;
             try std.posix.getrandom(std.mem.asBytes(&seed));
@@ -59,6 +61,9 @@ const StreamingShapes = struct {
                 @intFromEnum(ShapeVariant.TexturedCircle),
             ));
         }
+
+        // set camera as orthographic
+        main_camera.camera.setOrthogonal(1.0, 0.05, 4000);
 
         return .{
             .gpa = gpa,
@@ -80,7 +85,7 @@ const StreamingShapes = struct {
         }
 
         const input = self.input;
-        const camera = self.main_camera.camera();
+        const camera = &self.main_camera.camera;
         const shape = self.shape_renderer;
 
         // camera zoom controls

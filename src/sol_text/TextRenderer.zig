@@ -49,7 +49,7 @@ pub fn draw(self: *TextRenderer, x: i32, y: i32, text_mesh: TextMesh, font_atlas
     const window_width: f32 = @floatFromInt(sol.windowWidth());
     const window_height: f32 = @floatFromInt(sol.windowHeight());
 
-    const proj = Mat4.ortho_rh(0, window_width, 0, window_height, 0.01, 1);
+    const proj = Mat4.orthoRH(0, window_width, 0, window_height, 0.01, 1);
 
     const px: f32 = @floatFromInt(x);
     const py: f32 = @floatFromInt(y);

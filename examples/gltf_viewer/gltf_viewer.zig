@@ -10,9 +10,6 @@ const Mat4 = math.Mat4;
 const Quat = math.Quat;
 const Rotation = math.Rotation;
 
-const sol_renderer = @import("sol_renderer");
-// const Renderer = sol_renderer.Renderer;
-
 const sol_fetch = @import("sol_fetch");
 
 const sol_camera = @import("sol_camera");
@@ -316,6 +313,7 @@ pub const GBufferPass = struct {
                         .write_enabled = true,
                     },
                     .cull_mode = .BACK,
+                    .face_winding = .CCW,
                 };
 
                 desc.colors[0].pixel_format = .RGBA16;
@@ -769,9 +767,11 @@ const GltfViewer = struct {
         }
 
         sol.log.debug("max depth : {d}", .{node_it.max_depth});
+        main_camera.camera.lookat(.new(0, 0, 3), .new(0, 0, 0), .up);
 
         // HACK: camera position should dynamocally adjust based on gltf bounding box.
-        main_camera.camera().position = main_camera.camera().position.add(.new(0, 0, -1));
+        // main_camera.camera.position = main_camera.camera.position.add(.new(0, 0, -1));
+        // main_camera.camera.setOrthogonal(1.0, 0.05, 4000);
 
         return .{
             .gpa = gpa,
@@ -789,12 +789,22 @@ const GltfViewer = struct {
         };
     }
 
+    var rotx: f32 = 0;
+    var roty: f32 = 0;
     pub fn frame(self: *GltfViewer) void {
         const input = self.input;
+        const dt: f32 = @floatCast(sol.deltaTime());
 
         if (input.isKeyDown(.ESCAPE)) {
             sol.quit();
         }
+
+        if (input.isMouseButtonDown(.RIGHT)) |_| {
+            rotx += input.Axis(.Vertical) * math.pi * dt;
+            roty += input.Axis(.Horizontal) * math.pi * dt;
+        }
+
+        const rotation: Rotation = .new(rotx, roty, 0.0);
 
         const gpass = self.gpass;
         const blit_pass = self.blit_pass;
@@ -880,7 +890,6 @@ const GltfViewer = struct {
                         );
 
                         const rotate: Mat4 = Rotation.fromQuat(quat).toMat4();
-
                         const parent_transform: Mat4 = translate.mul(rotate.mul(scale.mul(gtransform)));
                         gtransform = parent_transform.mul(gtransform);
                     },
@@ -888,9 +897,10 @@ const GltfViewer = struct {
             }
 
             if (it.node.mesh_idx) |idx| {
+                gtransform = rotation.toMat4().mul(gtransform);
                 for (self.meshes[idx].primitives) |primitive| {
                     self.gpass.drawCulledAndSorted(
-                        self.main_camera.camera().*,
+                        self.main_camera.camera,
                         primitive,
                         self.materials[primitive.material_id].material(),
                         gtransform,

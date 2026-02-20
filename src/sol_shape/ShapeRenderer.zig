@@ -206,7 +206,7 @@ pub fn frame(self: *ShapeRenderer) void {
 
     ztx.text("shape count : {d}", .{self.shapes.items.len});
 
-    const camera = self.main_camera.camera();
+    const camera = &self.main_camera.camera;
 
     const sglue = sol.glue;
     var action: sg.PassAction = .{};

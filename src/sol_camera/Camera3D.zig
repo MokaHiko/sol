@@ -30,13 +30,47 @@ pub fn init(proj_type: ProjectionType, opts: Options) Camera3D {
         .Orthographic => {
             camera.setOrthogonal(1.0, 0.05, 4000);
         },
-
-        else => {
-            @panic("Unimplemented Perspective!");
+        .Perspective => {
+            const w: f32 = @floatFromInt(sol.windowWidth());
+            const h: f32 = @floatFromInt(sol.windowHeight());
+            camera.setPerspective(
+                90,
+                w / h,
+                0.05,
+                1000,
+            );
         },
     }
 
     return camera;
+}
+
+// src: https://github.com/HandmadeMath/HandmadeMath
+pub fn lookat(self: *Camera3D, eye: Vec3, center: Vec3, up: Vec3) void {
+    var res: Mat4 = .zero;
+
+    const f = Vec3.normalize(Vec3.sub(center, eye)) catch unreachable;
+    const s = Vec3.normalize(Vec3.cross(f, up)) catch unreachable;
+    const u = Vec3.cross(s, f);
+
+    res.m[0][0] = s.v[0];
+    res.m[0][1] = u.v[0];
+    res.m[0][2] = -f.v[0];
+
+    res.m[1][0] = s.v[1];
+    res.m[1][1] = u.v[1];
+    res.m[1][2] = -f.v[1];
+
+    res.m[2][0] = s.v[2];
+    res.m[2][1] = u.v[2];
+    res.m[2][2] = -f.v[2];
+
+    res.m[3][0] = -Vec3.dot(s, eye);
+    res.m[3][1] = -Vec3.dot(u, eye);
+    res.m[3][2] = Vec3.dot(f, eye);
+    res.m[3][3] = 1.0;
+
+    self.view = res;
 }
 
 pub fn setOrthogonal(self: *Camera3D, size: f32, z_near: f32, z_far: f32) void {
@@ -62,10 +96,26 @@ pub fn setOrthogonal(self: *Camera3D, size: f32, z_near: f32, z_far: f32) void {
     );
 }
 
+/// Sets the camera in a perspective projectin with fov in degrees.
+pub fn setPerspective(self: *Camera3D, fov: f32, aspect: f32, near: f32, far: f32) void {
+    var res: Mat4 = .identity;
+    const t = math.tan(fov * (math.pi / 360.0));
+
+    res.m[0][0] = 1.0 / t;
+    res.m[1][1] = aspect / t;
+    res.m[2][3] = -1.0;
+    res.m[2][2] = (near + far) / (near - far);
+    res.m[3][2] = (2.0 * near * far) / (near - far);
+    res.m[3][3] = 0.0;
+
+    self.proj = res;
+}
+
 pub fn calcView(self: *Camera3D) void {
-    self.view = Mat4.translate(Vec3.new(
-        -self.position.v[0],
-        -self.position.v[1],
-        -self.position.v[2],
-    ));
+    _ = self;
+    // self.view = Mat4.translate(Vec3.new(
+    //     -self.position.v[0],
+    //     -self.position.v[1],
+    //     -self.position.v[2],
+    // ));
 }
